@@ -303,8 +303,20 @@ export function generateOpportunities(
       if (matchedPhrase) {
         // Extract the sentence containing the phrase
         const sentences = review.transcript.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
-        const evidenceSentence = sentences.find(s => s.toLowerCase().includes(matchedPhrase));
-        if (!evidenceSentence) continue;
+const matchIndex = sentences.findIndex(s => s.toLowerCase().includes(matchedPhrase));
+if (matchIndex === -1) continue;
+
+// Grab surrounding context — the matching sentence plus one before and after
+const contextSentences = sentences
+  .slice(Math.max(0, matchIndex - 1), matchIndex + 2)
+  .join('. ')
+  .trim();
+
+// Only use quotes with enough substance (more than 6 words)
+const evidenceSentence = contextSentences.split(' ').length > 6
+  ? contextSentences
+  : null;
+if (!evidenceSentence) continue;
 
         if (!occasionByBrand.has(brand)) occasionByBrand.set(brand, []);
         const existing = occasionByBrand.get(brand)!.find(o => o.occasion === occasion);
