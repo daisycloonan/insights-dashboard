@@ -178,8 +178,10 @@ async function generateThemeSummary(theme: ThemeSummary, reviews: ReviewIntellig
     const relevantReviews = reviews
       .filter(r => r.transcript.toLowerCase().includes(theme.theme.toLowerCase()))
       .slice(0, 10)
-      .map(r => r.transcript.slice(0, 200))
+      .map(r => `[${r.product?.productName ?? 'Unknown'} by ${r.product?.brand ?? 'Unknown'}]: ${r.transcript.slice(0, 200)}`)
       .join('\n---\n');
+
+    const topBrands = theme.brands.slice(0, 3).join(', ');
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -189,7 +191,7 @@ async function generateThemeSummary(theme: ThemeSummary, reviews: ReviewIntellig
         max_tokens: 1000,
         messages: [{
           role: 'user',
-          content: `You are a consumer insights analyst. Based on these beverage product reviews mentioning "${theme.theme}", write a single concise sentence (max 20 words) summarising the main consumer consensus about this theme. Do not use quotes. Be direct and specific.
+          content: `You are a consumer insights analyst. Based on these beverage product reviews mentioning "${theme.theme}", write a single concise sentence (max 25 words) summarising the main consumer consensus. Mention specific brands or products where relevant. Do not use quotes. Be direct and specific.
 
 Reviews:
 ${relevantReviews}
@@ -199,16 +201,28 @@ Respond with only the summary sentence, nothing else.`,
       }),
     });
 
+    if (!response.ok) {
+      console.error('API error:', response.status, await response.text());
+      return fallbackSummary(theme);
+    }
+
     const data = await response.json();
-    return data.content?.[0]?.text?.trim() ?? fallbackSummary(theme);
-  } catch {
+    const text = data.content?.[0]?.text?.trim();
+    if (!text) {
+      console.error('No text in response:', JSON.stringify(data));
+      return fallbackSummary(theme);
+    }
+    return text;
+  } catch (err) {
+    console.error('generateThemeSummary error:', err);
     return fallbackSummary(theme);
   }
 }
 
 function fallbackSummary(theme: ThemeSummary): string {
-  const sentiment = theme.sentiment === 'positive' ? 'positively received' : 'a point of concern';
-  return `${theme.count} consumers mentioned ${theme.theme} — generally ${sentiment} across reviewed brands.`;
+  const topBrands = theme.brands.slice(0, 2).join(' and ');
+  const sentiment = theme.sentiment === 'positive' ? 'positively' : 'critically';
+  return `${theme.count} mentions across ${topBrands || 'multiple brands'} — consumers responded ${sentiment} to ${theme.theme}.`;
 }
 
 function KPICard({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
