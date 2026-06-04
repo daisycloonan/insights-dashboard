@@ -108,13 +108,29 @@ export default function OverviewPage() {
   <div className="space-y-5">
     {themes.slice(0, 6).map((theme) => {
       // Count mentions per brand for this theme
-      const brandCounts = reviews
-        .filter(r => r.transcript.toLowerCase().includes(theme.theme.toLowerCase()))
-        .reduce<Record<string, number>>((acc, r) => {
-          const b = r.product?.brand ?? r.brand?.brand_name ?? 'Unknown';
-          acc[b] = (acc[b] ?? 0) + 1;
-          return acc;
-        }, {});
+      const THEME_KEYWORDS_MAP: Record<string, string[]> = {
+  taste: ['taste', 'flavour', 'flavor', 'delicious', 'yummy', 'disgusting', 'bland', 'sweet', 'bitter', 'sour'],
+  sweetness: ['sweet', 'sugar', 'syrupy', 'too sweet', 'not sweet', 'sweetness'],
+  health: ['healthy', 'natural', 'organic', 'calories', 'sugar-free', 'low sugar', 'vitamins', 'clean', 'functional'],
+  convenience: ['convenient', 'easy', 'portable', 'on the go', 'quick', 'grab', 'handy'],
+  price: ['expensive', 'cheap', 'value', 'worth', 'price', 'cost', 'affordable', 'overpriced'],
+  packaging: ['bottle', 'can', 'packaging', 'design', 'look', 'label', 'size'],
+  energy: ['energy', 'caffeine', 'boost', 'focus', 'alert', 'tired', 'awake'],
+  hydration: ['hydration', 'hydrating', 'thirst', 'refreshing', 'refresh', 'water'],
+  socialising: ['party', 'friends', 'social', 'sharing', 'together', 'night out', 'gathering'],
+  sport: ['gym', 'workout', 'sport', 'exercise', 'fitness', 'training', 'run', 'performance'],
+};
+const keywords = THEME_KEYWORDS_MAP[theme.theme] ?? [theme.theme];
+const brandCounts = reviews
+  .filter(r => {
+    const lower = r.transcript.toLowerCase();
+    return keywords.some(k => lower.includes(k));
+  })
+  .reduce<Record<string, number>>((acc, r) => {
+    const b = r.product?.brand ?? r.brand?.brand_name ?? 'Unknown';
+    acc[b] = (acc[b] ?? 0) + 1;
+    return acc;
+  }, {});
       const total = Object.values(brandCounts).reduce((a, b) => a + b, 0);
       const brandColors: Record<string, string> = {
         'Double Dutch': 'bg-emerald-500',
