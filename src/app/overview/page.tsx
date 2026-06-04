@@ -241,6 +241,8 @@ async function generateThemeSummary(theme: ThemeSummary, reviews: ReviewIntellig
       .map(r => `[${r.product?.productName ?? 'Unknown'} by ${r.product?.brand ?? 'Unknown'}, rating ${r.rating}/5]: ${r.transcript.slice(0, 300)}`)
       .join('\n---\n');
 
+      console.log('Calling API for theme:', theme.theme);
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -272,6 +274,7 @@ Respond with only the insight sentence. No preamble, no quotes around the senten
     }
 
     const data = await response.json();
+    console.log('API response for', theme.theme, ':', JSON.stringify(data).slice(0, 200));
     const text = data.content?.[0]?.text?.trim();
     if (!text) {
       console.error('Empty response from API:', JSON.stringify(data));
