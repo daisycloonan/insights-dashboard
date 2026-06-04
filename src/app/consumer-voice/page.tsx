@@ -60,6 +60,49 @@ function buildFilterSummary(reviews: ReviewIntelligence[]) {
   };
 }
 
+function buildReviewSummary(review: ReviewIntelligence): string {
+  const text = review.transcript;
+  const lower = text.toLowerCase();
+  const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 20);
+
+  // Score each sentence by how many insight signals it contains
+  const SIGNAL_WORDS = [
+    'taste', 'flavour', 'flavor', 'sweet', 'bitter', 'refreshing', 'health', 'natural',
+    'organic', 'energy', 'caffeine', 'price', 'expensive', 'value', 'packaging', 'bottle',
+    'can', 'design', 'love', 'hate', 'recommend', 'disappointed', 'amazing', 'terrible',
+    'would buy', 'repurchase', 'again', 'prefer', 'compare', 'better', 'worse', 'unique',
+    'different', 'interesting', 'perfect', 'not for me', 'my kind', 'gym', 'workout',
+    'morning', 'evening', 'relax', 'functional', 'cbd', 'kombucha', 'probiotic',
+  ];
+
+  const scored = sentences.map(sentence => ({
+    sentence,
+    score: SIGNAL_WORDS.filter(w => sentence.toLowerCase().includes(w)).length,
+  })).sort((a, b) => b.score - a.score);
+
+  const topSentence = scored[0]?.sentence ?? sentences[0] ?? '';
+
+  // Build key facts
+  const facts: string[] = [];
+
+  const positiveWords = ['love', 'amazing', 'great', 'excellent', 'perfect', 'fantastic', 'recommend', 'best'];
+  const negativeWords = ['hate', 'disappointed', 'terrible', 'awful', 'bad', 'not for me', 'would not', "wouldn't"];
+  const isPositiveReview = positiveWords.some(w => lower.includes(w));
+  const isNegativeReview = negativeWords.some(w => lower.includes(w));
+
+  if (isPositiveReview && review.sentiment === 'positive') facts.push('strong endorsement');
+  if (isNegativeReview || review.sentiment === 'negative') facts.push('critical feedback');
+  if (lower.includes('compar') || lower.includes('versus') || lower.includes(' vs ')) facts.push('competitor comparison');
+  if (lower.includes('would buy') || lower.includes('repurchase') || lower.includes('buy again') || review.purchaseIntent) facts.push('repurchase intent');
+  if (lower.includes('cbd') || lower.includes('kombucha') || lower.includes('probiotic') || lower.includes('functional')) facts.push('functional benefits');
+  if (lower.includes('too sweet') || lower.includes('sweetness')) facts.push('sweetness feedback');
+  if (lower.includes('price') || lower.includes('expensive') || lower.includes('value')) facts.push('price sensitivity');
+
+  const tagLine = facts.length > 0 ? ` [${facts.join(' · ')}]` : '';
+
+  return `${topSentence.slice(0, 150)}${topSentence.length > 150 ? '...' : ''}${tagLine}`;
+}
+
 export default function ConsumerVoicePage() {
   const [reviews, setReviews] = useState<ReviewIntelligence[]>([]);
   const [signals, setSignals] = useState<ExtractedSignal[]>([]);
@@ -221,7 +264,20 @@ export default function ConsumerVoicePage() {
                 </div>
               </div>
 
-              <p className="text-sm text-gray-300 leading-relaxed">{review.transcript}</p>
+              {/* AI-style summary */}
+<div className="bg-gray-800 rounded-lg px-4 py-2 border-l-4 border-emerald-700">
+  <p className="text-xs text-emerald-400 font-semibold mb-1 uppercase tracking-wide">Key Takeaway</p>
+  <p className="text-xs text-gray-300 leading-relaxed">{buildReviewSummary(review)}</p>
+</div>
+
+{/* Full transcript — collapsed by default */}
+<details className="group">
+  <summary className="text-xs text-gray-500 hover:text-gray-300 cursor-pointer list-none flex items-center gap-1">
+    <span className="group-open:hidden">▼ Read full transcript</span>
+    <span className="hidden group-open:inline">▲ Hide transcript</span>
+  </summary>
+  <p className="text-sm text-gray-400 leading-relaxed mt-2">{review.transcript}</p>
+</details>
 
               {reviewSignals.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
