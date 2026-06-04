@@ -423,6 +423,94 @@ if (!evidenceSentence) continue;
       type: 'segment',
     });
   }
+  // 5. Positioning mismatch — brand claims vs consumer reality
+  for (const brand of brandInsights) {
+    const brandReviews = reviews.filter(r =>
+      (r.product?.brand ?? r.brand?.brand_name ?? '') === brand.brandName
+    );
+    if (brandReviews.length < 3) continue;
+
+    const positioning = brand.positioning.toLowerCase();
+
+    // Check if brand claims health/wellness but consumers don't mention it much
+    const healthKeywords = ['healthy', 'natural', 'organic', 'functional', 'wellness', 'clean'];
+    const claimsHealth = healthKeywords.some(k => positioning.includes(k));
+    const consumerHealthMentions = brandReviews.filter(r =>
+      healthKeywords.some(k => r.transcript.toLowerCase().includes(k))
+    ).length;
+    const healthPct = Math.round((consumerHealthMentions / brandReviews.length) * 100);
+
+    if (claimsHealth && healthPct < 30) {
+      opportunities.push({
+        id: `positioning-health-${brand.brandName}`,
+        title: `${brand.brandName} leads with health credentials but consumers focus elsewhere`,
+        explanation: `${brand.brandName}'s positioning emphasises health and functionality, but only ${healthPct}% of consumer reviews mention health-related themes. Consumers are more focused on taste and packaging — suggesting the health message isn't landing or isn't the primary purchase driver.`,
+        evidence: brandReviews
+          .filter(r => !healthKeywords.some(k => r.transcript.toLowerCase().includes(k)))
+          .slice(0, 3)
+          .map(r => r.transcript.slice(0, 120)),
+        impactedBrands: [brand.brandName],
+        impactedProducts: productInsights.filter(p => p.brand === brand.brandName).map(p => p.productName),
+        type: 'positioning',
+      });
+    }
+
+    // Check if brand claims premium but consumers mention price complaints
+    const claimsPremium = positioning.includes('premium') || positioning.includes('luxury') || positioning.includes('craft');
+    const priceComplaints = brandReviews.filter(r =>
+      ['expensive', 'overpriced', 'too much', 'not worth', 'price'].some(k =>
+        r.transcript.toLowerCase().includes(k)
+      )
+    ).length;
+
+    if (claimsPremium && priceComplaints >= 2) {
+      opportunities.push({
+        id: `positioning-price-${brand.brandName}`,
+        title: `${brand.brandName} claims premium but ${priceComplaints} reviewers question the value`,
+        explanation: `${brand.brandName} positions itself as a premium product, but ${priceComplaints} reviewers raise price or value concerns. The premium positioning may need stronger justification through ingredients, provenance or experience storytelling.`,
+        evidence: brandReviews
+          .filter(r => ['expensive', 'overpriced', 'too much', 'not worth', 'price'].some(k =>
+            r.transcript.toLowerCase().includes(k)
+          ))
+          .slice(0, 3)
+          .map(r => {
+            const sentences = r.transcript.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+            return sentences.find(s =>
+              ['expensive', 'overpriced', 'too much', 'not worth', 'price'].some(k => s.toLowerCase().includes(k))
+            ) ?? r.transcript.slice(0, 120);
+          }),
+        impactedBrands: [brand.brandName],
+        impactedProducts: productInsights.filter(p => p.brand === brand.brandName).map(p => p.productName),
+        type: 'positioning',
+      });
+    }
+
+    // Check if brand claims social/occasion but consumers drink alone
+    const claimsSocial = ['social', 'sharing', 'entertaining', 'mixer', 'cocktail'].some(k => positioning.includes(k));
+    const socialMentions = brandReviews.filter(r =>
+      ['friends', 'party', 'sharing', 'together', 'host', 'gather'].some(k =>
+        r.transcript.toLowerCase().includes(k)
+      )
+    ).length;
+    const socialPct = Math.round((socialMentions / brandReviews.length) * 100);
+
+    if (claimsSocial && socialPct < 20) {
+      opportunities.push({
+        id: `positioning-social-${brand.brandName}`,
+        title: `${brand.brandName} targets social occasions but most consumers drink it solo`,
+        explanation: `${brand.brandName}'s positioning emphasises social and sharing occasions, but only ${socialPct}% of reviews mention social contexts. Most consumers appear to be drinking it alone — suggesting a solo enjoyment angle could resonate more authentically.`,
+        evidence: brandReviews
+          .filter(r => !['friends', 'party', 'sharing', 'together'].some(k =>
+            r.transcript.toLowerCase().includes(k)
+          ))
+          .slice(0, 3)
+          .map(r => r.transcript.slice(0, 120)),
+        impactedBrands: [brand.brandName],
+        impactedProducts: productInsights.filter(p => p.brand === brand.brandName).map(p => p.productName),
+        type: 'positioning',
+      });
+    }
+  }
 
   return opportunities;
 }
