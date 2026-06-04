@@ -199,10 +199,10 @@ export function buildBrandInsights(reviews: ReviewIntelligence[], signals: Extra
       .map(([t]) => t);
 
     return {
-      brandName,
-      momentum: Number(data.brand?.momentum_score ?? 0),
-      popularity: Number(data.brand?.popularity_score ?? 0),
-      breakthrough: Number(data.brand?.breakthrough_score ?? 0),
+  brandName,
+  momentum: Math.round(Number(data.brand?.momentum_score ?? 0) * 10) / 10,
+  popularity: Math.round(Number(data.brand?.popularity_score ?? 0) * 10) / 10,
+  breakthrough: Math.round(Number(data.brand?.breakthrough_score ?? 0) * 10) / 10,
       avgRating: Math.round(avgRating * 10) / 10,
       avgSentimentScore: Math.round(avgSentiment * 100) / 100,
       reviewCount: data.ratings.length,

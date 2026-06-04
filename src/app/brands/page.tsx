@@ -47,7 +47,7 @@ export default function BrandsPage() {
             <p className="text-xs text-emerald-400 font-semibold uppercase tracking-wide mb-2">⭐ Top Performer</p>
             <h3 className="text-xl font-bold text-white">{topBrand.brandName}</h3>
             <p className="text-sm text-gray-300 mt-1">{topBrand.reviewCount} reviews · ⭐ {topBrand.avgRating} avg rating</p>
-            <p className="text-xs text-gray-400 mt-2">{topBrand.positioning}</p>
+            <p className="text-xs text-gray-400 mt-2 line-clamp-2">{topBrand.positioning}</p>
             <div className="flex gap-2 mt-3 flex-wrap">
               {topBrand.topThemes.map(t => (
                 <span key={t} className="text-xs bg-emerald-900 text-emerald-300 px-2 py-0.5 rounded-full capitalize">{t}</span>
@@ -99,7 +99,7 @@ export default function BrandsPage() {
                 <span className="text-2xl font-bold text-gray-600">#{index + 1}</span>
                 <div>
                   <h3 className="font-bold text-white text-lg">{brand.brandName}</h3>
-                  <p className="text-xs text-gray-400 max-w-lg">{brand.positioning?.slice(0, 120)}...</p>
+                  <p className="text-xs text-gray-400 max-w-lg line-clamp-2">{brand.positioning}</p>
                 </div>
               </div>
               <div className="text-right">
@@ -110,10 +110,10 @@ export default function BrandsPage() {
 
             {/* Performance Scores */}
             <div className="grid grid-cols-3 gap-3">
-              <ScoreBar label="Momentum" value={brand.momentum} color="emerald" />
-              <ScoreBar label="Popularity" value={brand.popularity} color="blue" />
-              <ScoreBar label="Breakthrough" value={brand.breakthrough} color="violet" />
-            </div>
+  <ScoreBar label="Momentum" value={brand.momentum} color="emerald" description="YoY growth" />
+  <ScoreBar label="Popularity" value={brand.popularity} color="blue" description="Category presence" />
+  <ScoreBar label="Breakthrough" value={brand.breakthrough} color="violet" description="Size + growth blend" />
+            </div>  
 
             {/* Sentiment Score */}
             <div className="flex items-center gap-3">
@@ -167,21 +167,28 @@ export default function BrandsPage() {
   );
 }
 
-function ScoreBar({ label, value, color }: { label: string; value: number; color: string }) {
+function ScoreBar({ label, value, color, description }: { label: string; value: number; color: string; description?: string }) {
   const colors: Record<string, string> = {
     emerald: 'bg-emerald-500',
     blue: 'bg-blue-500',
     violet: 'bg-violet-500',
   };
-  const pct = Math.min(Math.max((value / 100) * 100, 0), 100);
+  const pct = Math.min(Math.max(value, 0), 100);
+  const strength = value >= 60 ? 'Strong' : value >= 35 ? 'Moderate' : 'Low';
+  const strengthColor = value >= 60 ? 'text-emerald-400' : value >= 35 ? 'text-amber-400' : 'text-red-400';
+
   return (
     <div className="bg-gray-800 rounded-lg p-3">
-      <div className="flex justify-between text-xs mb-2">
-        <span className="text-gray-400">{label}</span>
-        <span className="text-white font-semibold">{value}</span>
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-gray-400 font-medium">{label}</span>
+        <span className="text-white font-semibold">{value}/100</span>
       </div>
-      <div className="w-full bg-gray-700 rounded-full h-1.5">
+      <div className="w-full bg-gray-700 rounded-full h-1.5 mb-1">
         <div className={`h-1.5 rounded-full ${colors[color]}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="flex justify-between text-xs">
+        <span className="text-gray-600">{description}</span>
+        <span className={`font-medium ${strengthColor}`}>{strength}</span>
       </div>
     </div>
   );
