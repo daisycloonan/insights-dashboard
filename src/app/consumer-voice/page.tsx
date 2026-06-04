@@ -60,61 +60,101 @@ function buildFilterSummary(reviews: ReviewIntelligence[]) {
 function buildReviewSummary(review: ReviewIntelligence): string {
   const text = review.transcript;
   const lower = text.toLowerCase();
-  const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 30);
 
-  const SIGNAL_WORDS = [
-    'taste', 'flavour', 'flavor', 'sweet', 'bitter', 'refreshing', 'health', 'natural',
-    'organic', 'energy', 'caffeine', 'price', 'expensive', 'value', 'packaging', 'bottle',
-    'can', 'design', 'love', 'hate', 'recommend', 'disappointed', 'amazing', 'terrible',
-    'prefer', 'compare', 'better', 'worse', 'unique', 'different', 'interesting', 'perfect',
-    'not for me', 'my kind', 'gym', 'workout', 'morning', 'evening', 'relax', 'functional',
-    'cbd', 'kombucha', 'probiotic', 'would buy', 'buy again', 'repurchase', 'go back',
-    'stand alone', 'mixer', 'alternative', 'light', 'strong', 'balanced', 'overall',
-  ];
-
-  // Bonus words that indicate a verdict or opinion
-  const VERDICT_WORDS = [
-    'i think', 'i feel', 'i love', 'i hate', 'i prefer', 'i would', "i wouldn't",
-    'i like', "i don't like", 'i rate', 'overall', 'verdict', 'recommend', 'not for me',
-    'would go back', 'would not go back', 'buy again', 'stand alone', 'as a mixer',
-    'good option', 'great option', 'not sure', 'definitely', 'personally',
-  ];
-
-  const scored = sentences.map(sentence => {
-    const sl = sentence.toLowerCase();
-    const signalScore = SIGNAL_WORDS.filter(w => sl.includes(w)).length;
-    const verdictScore = VERDICT_WORDS.filter(w => sl.includes(w)).length * 2;
-    const lengthBonus = sentence.length > 60 ? 1 : 0;
-    return {
-      sentence,
-      score: signalScore + verdictScore + lengthBonus,
-    };
-  }).sort((a, b) => b.score - a.score);
-
-  const topSentence = scored[0]?.sentence ?? sentences[0] ?? text.slice(0, 150);
-
-  // Build key facts — only from transcript text, not metadata
-  const facts: string[] = [];
-  const positiveWords = ['love', 'amazing', 'great', 'excellent', 'perfect', 'fantastic', 'recommend', 'best', 'i rate'];
-  const isPositiveReview = positiveWords.some(w => lower.includes(w));
-
-  if (isPositiveReview && review.sentiment === 'positive') facts.push('strong endorsement');
-  if (review.sentiment === 'negative') facts.push('critical feedback');
-  if (lower.includes('compar') || lower.includes('versus') || lower.includes(' vs ')) facts.push('competitor comparison');
-
-  // Only flag repurchase if transcript explicitly mentions it
+  // Detect key signals
+  const positiveWords = ['love', 'amazing', 'great', 'excellent', 'perfect', 'fantastic', 'recommend', 'best', 'i rate', 'really like', 'really good'];
+  const negativeWords = ['hate', 'disappointed', 'terrible', 'awful', 'not for me', 'would not', "wouldn't", 'dislike'];
   const repurchaseWords = ['would buy', 'buy again', 'repurchase', 'would go back', 'buying again', 'purchase again'];
-  if (repurchaseWords.some(w => lower.includes(w))) facts.push('repurchase intent');
+  const noRepurchaseWords = ['would not go back', "wouldn't go back", 'not sure i would', 'probably not buy', "won't buy", 'not repurchase'];
+  const mixerWords = ['as a mixer', 'mix with', 'mixed with', 'cocktail', 'spirit', 'gin', 'vodka'];
+  const standaloneWords = ['stand alone', 'on its own', 'by itself', 'without alcohol', 'non alcoholic'];
+  const compareWords = ['compared to', 'versus', ' vs ', 'better than', 'worse than', 'prefer', 'schweppes', 'coca cola', 'pepsi'];
+  const tasteWords = ['taste', 'flavour', 'flavor', 'sweet', 'bitter', 'sour', 'refreshing', 'light', 'strong', 'balanced', 'fruity', 'spicy', 'herbal'];
+  const healthWords = ['healthy', 'natural', 'organic', 'probiotic', 'gut', 'functional', 'cbd', 'kombucha', 'sugar free', 'low sugar'];
+  const packagingWords = ['bottle', 'can', 'packaging', 'design', 'look', 'label', 'colour', 'color'];
 
-  if (lower.includes('cbd') || lower.includes('kombucha') || lower.includes('probiotic') || lower.includes('functional')) facts.push('functional benefits');
-  if (lower.includes('too sweet') || lower.includes('sweetness')) facts.push('sweetness feedback');
-  if (lower.includes('price') || lower.includes('expensive') || lower.includes('value')) facts.push('price sensitivity');
-  if (lower.includes('as a mixer') || lower.includes('mix with') || lower.includes('mixed with')) facts.push('mixer use');
-  if (lower.includes('not sure') || lower.includes('on the fence') || lower.includes('maybe')) facts.push('undecided');
-  if (lower.includes('stand alone') || lower.includes('on its own') || lower.includes('by itself')) facts.push('standalone verdict');
+  const isPositive = positiveWords.some(w => lower.includes(w));
+  const isNegative = negativeWords.some(w => lower.includes(w));
+  const wouldRepurchase = repurchaseWords.some(w => lower.includes(w));
+  const wouldNotRepurchase = noRepurchaseWords.some(w => lower.includes(w));
+  const mentionsMixer = mixerWords.some(w => lower.includes(w));
+  const mentionsStandalone = standaloneWords.some(w => lower.includes(w));
+  const mentionsComparison = compareWords.some(w => lower.includes(w));
+  const mentionsTaste = tasteWords.some(w => lower.includes(w));
+  const mentionsHealth = healthWords.some(w => lower.includes(w));
+  const mentionsPackaging = packagingWords.some(w => lower.includes(w));
+  const isUndecided = lower.includes('not sure') || lower.includes('on the fence') || lower.includes('maybe');
 
-  const tagLine = facts.length > 0 ? ` [${facts.join(' · ')}]` : '';
-  return `${topSentence.slice(0, 160)}${topSentence.length > 160 ? '...' : ''}${tagLine}`;
+  // Build natural language summary
+  const parts: string[] = [];
+
+  // Opening sentiment
+  if (review.sentiment === 'negative' || isNegative) {
+    parts.push('Reviewer was critical overall');
+  } else if (isPositive && review.sentiment === 'positive') {
+    parts.push('Reviewer gave a strong endorsement');
+  } else if (isUndecided) {
+    parts.push('Reviewer had a mixed reaction');
+  } else {
+    parts.push('Reviewer responded positively');
+  }
+
+  // Taste
+  if (mentionsTaste) {
+    const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 20);
+    const tasteSentence = sentences.find(s => tasteWords.some(w => s.toLowerCase().includes(w)));
+    if (tasteSentence) {
+      // Extract key adjectives from taste sentence
+      const tasteAdjs = ['light', 'strong', 'sweet', 'bitter', 'refreshing', 'spicy', 'fruity', 'herbal', 'gentle', 'bold', 'subtle', 'natural', 'artificial'];
+      const foundAdjs = tasteAdjs.filter(a => tasteSentence.toLowerCase().includes(a));
+      if (foundAdjs.length > 0) {
+        parts.push(`enjoyed the ${foundAdjs.slice(0, 2).join(', ')} taste profile`);
+      } else {
+        parts.push('commented on the taste');
+      }
+    }
+  }
+
+  // Health / functional
+  if (mentionsHealth) {
+    parts.push('noted the health or functional credentials');
+  }
+
+  // Packaging
+  if (mentionsPackaging && !mentionsTaste) {
+    parts.push('highlighted the packaging');
+  }
+
+  // Comparison
+  if (mentionsComparison) {
+    parts.push('compared it to other brands or products');
+  }
+
+  // Mixer vs standalone
+  if (mentionsMixer && mentionsStandalone) {
+    parts.push('felt it works better as a mixer than a standalone drink');
+  } else if (mentionsMixer) {
+    parts.push('suggested it would work well as a mixer');
+  } else if (mentionsStandalone) {
+    parts.push('tried it as a standalone drink');
+  }
+
+  // Repurchase
+  if (wouldNotRepurchase || (isUndecided && !wouldRepurchase)) {
+    parts.push('was unsure about repurchasing');
+  } else if (wouldRepurchase) {
+    parts.push('expressed intent to buy again');
+  }
+
+  // Join into a natural sentence
+  if (parts.length === 1) return parts[0] + '.';
+
+  const opening = parts[0];
+  const middle = parts.slice(1, -1).join(', ');
+  const closing = parts[parts.length - 1];
+
+  if (parts.length === 2) return `${opening} and ${closing}.`;
+  return `${opening}, ${middle}, and ${closing}.`;
 }
 
 export default function ConsumerVoicePage() {
