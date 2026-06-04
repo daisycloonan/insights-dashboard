@@ -236,51 +236,44 @@ const brandCounts = reviews
 async function generateThemeSummary(theme: ThemeSummary, reviews: ReviewIntelligence[]): Promise<string> {
   try {
     const relevantReviews = reviews
-      .filter(r => r.transcript.toLowerCase().includes(theme.theme.toLowerCase()))
+      .filter(r => {
+        const THEME_KEYWORDS_MAP: Record<string, string[]> = {
+          taste: ['taste', 'flavour', 'flavor', 'delicious', 'yummy', 'disgusting', 'bland', 'sweet', 'bitter', 'sour'],
+          sweetness: ['sweet', 'sugar', 'syrupy', 'too sweet', 'not sweet', 'sweetness'],
+          health: ['healthy', 'natural', 'organic', 'calories', 'sugar-free', 'low sugar', 'vitamins', 'clean', 'functional'],
+          convenience: ['convenient', 'easy', 'portable', 'on the go', 'quick', 'grab', 'handy'],
+          price: ['expensive', 'cheap', 'value', 'worth', 'price', 'cost', 'affordable', 'overpriced'],
+          packaging: ['bottle', 'can', 'packaging', 'design', 'look', 'label', 'size'],
+          energy: ['energy', 'caffeine', 'boost', 'focus', 'alert', 'tired', 'awake'],
+          hydration: ['hydration', 'hydrating', 'thirst', 'refreshing', 'refresh', 'water'],
+          socialising: ['party', 'friends', 'social', 'sharing', 'together', 'night out', 'gathering'],
+          sport: ['gym', 'workout', 'sport', 'exercise', 'fitness', 'training', 'run', 'performance'],
+        };
+        const keywords = THEME_KEYWORDS_MAP[theme.theme] ?? [theme.theme];
+        const lower = r.transcript.toLowerCase();
+        return keywords.some(k => lower.includes(k));
+      })
       .slice(0, 15)
-      .map(r => `[${r.product?.productName ?? 'Unknown'} by ${r.product?.brand ?? 'Unknown'}, rating ${r.rating}/5]: ${r.transcript.slice(0, 300)}`)
-      .join('\n---\n');
+      .map(r => ({
+        productName: r.product?.productName ?? 'Unknown',
+        brand: r.product?.brand ?? r.brand?.brand_name ?? 'Unknown',
+        rating: r.rating,
+        transcript: r.transcript,
+      }));
 
-      console.log('Calling API for theme:', theme.theme);
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/summarise', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: `You are a senior consumer insights analyst for a beverage brand intelligence platform.
-
-Based on the reviews below about the theme "${theme.theme}", write ONE concise insight sentence (max 30 words) that:
-- Describes the overall consumer consensus on this theme
-- Names specific brands or products where the signal is strongest
-- Highlights any tension or nuance (e.g. loved by some, divisive for others)
-- Sounds like a commercial insight, not a data summary
-
-Reviews:
-${relevantReviews}
-
-Respond with only the insight sentence. No preamble, no quotes around the sentence.`,
-        }],
-      }),
+      body: JSON.stringify({ theme: theme.theme, reviews: relevantReviews }),
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error('Anthropic API error:', response.status, errText);
+      console.error('Summarise API error:', response.status);
       return fallbackSummary(theme, reviews);
     }
 
     const data = await response.json();
-    console.log('API response for', theme.theme, ':', JSON.stringify(data).slice(0, 200));
-    const text = data.content?.[0]?.text?.trim();
-    if (!text) {
-      console.error('Empty response from API:', JSON.stringify(data));
-      return fallbackSummary(theme, reviews);
-    }
-    return text;
+    return data.summary || fallbackSummary(theme, reviews);
   } catch (err) {
     console.error('generateThemeSummary failed:', err);
     return fallbackSummary(theme, reviews);
