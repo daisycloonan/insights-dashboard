@@ -177,11 +177,9 @@ async function generateThemeSummary(theme: ThemeSummary, reviews: ReviewIntellig
   try {
     const relevantReviews = reviews
       .filter(r => r.transcript.toLowerCase().includes(theme.theme.toLowerCase()))
-      .slice(0, 10)
-      .map(r => `[${r.product?.productName ?? 'Unknown'} by ${r.product?.brand ?? 'Unknown'}]: ${r.transcript.slice(0, 200)}`)
+      .slice(0, 15)
+      .map(r => `[${r.product?.productName ?? 'Unknown'} by ${r.product?.brand ?? 'Unknown'}, rating ${r.rating}/5]: ${r.transcript.slice(0, 300)}`)
       .join('\n---\n');
-
-    const topBrands = theme.brands.slice(0, 3).join(', ');
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -191,38 +189,58 @@ async function generateThemeSummary(theme: ThemeSummary, reviews: ReviewIntellig
         max_tokens: 1000,
         messages: [{
           role: 'user',
-          content: `You are a consumer insights analyst. Based on these beverage product reviews mentioning "${theme.theme}", write a single concise sentence (max 25 words) summarising the main consumer consensus. Mention specific brands or products where relevant. Do not use quotes. Be direct and specific.
+          content: `You are a senior consumer insights analyst for a beverage brand intelligence platform.
+
+Based on the reviews below about the theme "${theme.theme}", write ONE concise insight sentence (max 30 words) that:
+- Describes the overall consumer consensus on this theme
+- Names specific brands or products where the signal is strongest
+- Highlights any tension or nuance (e.g. loved by some, divisive for others)
+- Sounds like a commercial insight, not a data summary
 
 Reviews:
 ${relevantReviews}
 
-Respond with only the summary sentence, nothing else.`,
+Respond with only the insight sentence. No preamble, no quotes around the sentence.`,
         }],
       }),
     });
 
     if (!response.ok) {
-      console.error('API error:', response.status, await response.text());
-      return fallbackSummary(theme);
+      const errText = await response.text();
+      console.error('Anthropic API error:', response.status, errText);
+      return fallbackSummary(theme, reviews);
     }
 
     const data = await response.json();
     const text = data.content?.[0]?.text?.trim();
     if (!text) {
-      console.error('No text in response:', JSON.stringify(data));
-      return fallbackSummary(theme);
+      console.error('Empty response from API:', JSON.stringify(data));
+      return fallbackSummary(theme, reviews);
     }
     return text;
   } catch (err) {
-    console.error('generateThemeSummary error:', err);
-    return fallbackSummary(theme);
+    console.error('generateThemeSummary failed:', err);
+    return fallbackSummary(theme, reviews);
   }
 }
 
-function fallbackSummary(theme: ThemeSummary): string {
-  const topBrands = theme.brands.slice(0, 2).join(' and ');
+function fallbackSummary(theme: ThemeSummary, reviews: ReviewIntelligence[]): string {
+  const relevantReviews = reviews.filter(r =>
+    r.transcript.toLowerCase().includes(theme.theme.toLowerCase())
+  );
+  const brandCounts = relevantReviews.reduce<Record<string, number>>((acc, r) => {
+    const b = r.product?.brand ?? r.brand?.brand_name ?? '';
+    if (b) acc[b] = (acc[b] ?? 0) + 1;
+    return acc;
+  }, {});
+  const topBrands = Object.entries(brandCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([b, count]) => `${b} (${count})`)
+    .join(', ');
   const sentiment = theme.sentiment === 'positive' ? 'positively' : 'critically';
-  return `${theme.count} mentions across ${topBrands || 'multiple brands'} — consumers responded ${sentiment} to ${theme.theme}.`;
+  const avgRating = theme.avgRating > 0 ? ` — avg rating ${theme.avgRating}/5` : '';
+  return `Mentioned ${theme.count} times, most frequently for ${topBrands}. Consumers responded ${sentiment}${avgRating}.`;
 }
 
 function KPICard({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
