@@ -91,7 +91,7 @@ function buildReviewSummary(review: ReviewIntelligence): string {
   const isNegativeReview = negativeWords.some(w => lower.includes(w));
 
   if (isPositiveReview && review.sentiment === 'positive') facts.push('strong endorsement');
-  if (isNegativeReview || review.sentiment === 'negative') facts.push('critical feedback');
+  if (review.sentiment === 'negative') facts.push('critical feedback');
   if (lower.includes('compar') || lower.includes('versus') || lower.includes(' vs ')) facts.push('competitor comparison');
   if (lower.includes('would buy') || lower.includes('repurchase') || lower.includes('buy again') || review.purchaseIntent) facts.push('repurchase intent');
   if (lower.includes('cbd') || lower.includes('kombucha') || lower.includes('probiotic') || lower.includes('functional')) facts.push('functional benefits');
