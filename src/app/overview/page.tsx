@@ -98,35 +98,79 @@ export default function OverviewPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Top Themes */}
-        <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Top Consumer Themes</h2>
-            {summariesLoading && (
-              <span className="text-xs text-emerald-400 animate-pulse">Generating summaries...</span>
-            )}
+<div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+  <div className="flex items-center justify-between mb-4">
+    <h2 className="text-lg font-semibold">Top Consumer Themes</h2>
+    {summariesLoading && (
+      <span className="text-xs text-emerald-400 animate-pulse">Generating summaries...</span>
+    )}
+  </div>
+  <div className="space-y-5">
+    {themes.slice(0, 6).map((theme) => {
+      // Count mentions per brand for this theme
+      const brandCounts = reviews
+        .filter(r => r.transcript.toLowerCase().includes(theme.theme.toLowerCase()))
+        .reduce<Record<string, number>>((acc, r) => {
+          const b = r.product?.brand ?? r.brand?.brand_name ?? 'Unknown';
+          acc[b] = (acc[b] ?? 0) + 1;
+          return acc;
+        }, {});
+      const total = Object.values(brandCounts).reduce((a, b) => a + b, 0);
+      const brandColors: Record<string, string> = {
+        'Double Dutch': 'bg-emerald-500',
+        'Fix8': 'bg-blue-500',
+        'SKIP': 'bg-violet-500',
+        'UNAI': 'bg-amber-500',
+      };
+
+      return (
+        <div key={theme.theme}>
+          {/* Theme header */}
+          <div className="flex justify-between items-center mb-1">
+            <span className="capitalize font-medium text-sm">{theme.theme}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-400">⭐ {theme.avgRating}/5</span>
+              <span className="text-xs text-gray-500">{theme.count} mentions</span>
+            </div>
           </div>
-          <div className="space-y-4">
-            {themes.slice(0, 6).map((theme) => (
-              <div key={theme.theme}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="capitalize font-medium">{theme.theme}</span>
-                  <span className="text-gray-400">{theme.count} mentions</span>
-                </div>
-                <div className="w-full bg-gray-800 rounded-full h-2 mb-2">
-                  <div
-                    className={`h-2 rounded-full ${theme.sentiment === 'positive' ? 'bg-emerald-500' : 'bg-red-400'}`}
-                    style={{ width: `${Math.min((theme.count / (themes[0]?.count || 1)) * 100, 100)}%` }}
-                  />
-                </div>
-                {theme.consensusSummary ? (
-                  <p className="text-xs text-gray-400 mt-1">{theme.consensusSummary}</p>
-                ) : (
-                  <p className="text-xs text-gray-600 mt-1 italic animate-pulse">Summarising...</p>
-                )}
-              </div>
-            ))}
+
+          {/* Segmented bar */}
+          <div className="flex rounded-full overflow-hidden h-3 bg-gray-800 mb-2">
+            {Object.entries(brandCounts)
+              .sort((a, b) => b[1] - a[1])
+              .map(([brand, count]) => (
+                <div
+                  key={brand}
+                  className={`${brandColors[brand] ?? 'bg-gray-500'} h-3`}
+                  style={{ width: `${(count / total) * 100}%` }}
+                  title={`${brand}: ${count}`}
+                />
+              ))}
           </div>
+
+          {/* Brand legend */}
+          <div className="flex flex-wrap gap-2 mb-2">
+            {Object.entries(brandCounts)
+              .sort((a, b) => b[1] - a[1])
+              .map(([brand, count]) => (
+                <span key={brand} className="flex items-center gap-1 text-xs text-gray-400">
+                  <span className={`w-2 h-2 rounded-full inline-block ${brandColors[brand] ?? 'bg-gray-500'}`} />
+                  {brand} ({count})
+                </span>
+              ))}
+          </div>
+
+          {/* Consensus summary */}
+          {theme.consensusSummary ? (
+            <p className="text-xs text-gray-400">{theme.consensusSummary}</p>
+          ) : (
+            <p className="text-xs text-gray-600 italic animate-pulse">Summarising...</p>
+          )}
         </div>
+      );
+    })}
+  </div>
+</div>
 
         {/* Top Brands */}
         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
