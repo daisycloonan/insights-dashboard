@@ -5,6 +5,61 @@ import { loadAllData } from '@/lib/data/loader';
 import { extractSignals } from '@/lib/insights/extractor';
 import { ReviewIntelligence, ExtractedSignal } from '@/types';
 
+const THEME_KEYWORDS_MAP: Record<string, string[]> = {
+  taste: ['taste', 'flavour', 'flavor', 'delicious', 'yummy', 'disgusting', 'bland', 'sweet', 'bitter', 'sour'],
+  sweetness: ['sweet', 'sugar', 'syrupy', 'too sweet', 'not sweet', 'sweetness'],
+  health: ['healthy', 'natural', 'organic', 'calories', 'sugar-free', 'low sugar', 'vitamins', 'clean', 'functional'],
+  convenience: ['convenient', 'easy', 'portable', 'on the go', 'quick', 'grab', 'handy'],
+  price: ['expensive', 'cheap', 'value', 'worth', 'price', 'cost', 'affordable', 'overpriced'],
+  packaging: ['bottle', 'can', 'packaging', 'design', 'look', 'label', 'size'],
+  energy: ['energy', 'caffeine', 'boost', 'focus', 'alert', 'tired', 'awake'],
+  hydration: ['hydration', 'hydrating', 'thirst', 'refreshing', 'refresh', 'water'],
+  socialising: ['party', 'friends', 'social', 'sharing', 'together', 'night out', 'gathering'],
+  sport: ['gym', 'workout', 'sport', 'exercise', 'fitness', 'training', 'run', 'performance'],
+};
+
+function buildFilterSummary(reviews: ReviewIntelligence[]) {
+  const total = reviews.length;
+  if (total === 0) return null;
+
+  const positiveCount = reviews.filter(r => r.sentiment === 'positive').length;
+  const negativeCount = reviews.filter(r => r.sentiment === 'negative').length;
+  const neutralCount = reviews.filter(r => r.sentiment === 'neutral').length;
+  const intentCount = reviews.filter(r => r.purchaseIntent).length;
+
+  // Top themes
+  const themeCounts = Object.entries(THEME_KEYWORDS_MAP).map(([theme, keywords]) => ({
+    theme,
+    count: reviews.filter(r => keywords.some(k => r.transcript.toLowerCase().includes(k))).length,
+  })).filter(t => t.count > 0).sort((a, b) => b.count - a.count).slice(0, 3);
+
+  // Top archetype
+  const archetypeCounts = reviews.reduce<Record<string, number>>((acc, r) => {
+    const a = r.archetype;
+    if (a && a !== 'Unknown') acc[a] = (acc[a] ?? 0) + 1;
+    return acc;
+  }, {});
+  const topArchetype = Object.entries(archetypeCounts).sort((a, b) => b[1] - a[1])[0];
+
+  // Avg rating
+  const avgRating = reviews.reduce((a, r) => a + r.rating, 0) / total;
+
+  return {
+    total,
+    positiveCount,
+    negativeCount,
+    neutralCount,
+    intentCount,
+    intentPct: Math.round((intentCount / total) * 100),
+    positivePct: Math.round((positiveCount / total) * 100),
+    negativePct: Math.round((negativeCount / total) * 100),
+    neutralPct: Math.round((neutralCount / total) * 100),
+    topThemes: themeCounts,
+    topArchetype: topArchetype ?? null,
+    avgRating: Math.round(avgRating * 10) / 10,
+  };
+}
+
 export default function ConsumerVoicePage() {
   const [reviews, setReviews] = useState<ReviewIntelligence[]>([]);
   const [signals, setSignals] = useState<ExtractedSignal[]>([]);
@@ -36,6 +91,10 @@ export default function ConsumerVoicePage() {
       return matchesSearch && matchesSentiment && matchesBrand && matchesArchetype;
     });
   }, [reviews, search, filterSentiment, filterBrand, filterArchetype]);
+
+  const summary = useMemo(() => buildFilterSummary(filtered), [filtered]);
+
+  const isFiltered = search !== '' || filterSentiment !== 'all' || filterBrand !== 'all' || filterArchetype !== 'all';
 
   if (loading) return <LoadingScreen />;
 
@@ -81,6 +140,65 @@ export default function ConsumerVoicePage() {
         </select>
       </div>
 
+      {/* Dynamic Summary Panel */}
+      {summary && (
+        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
+              {isFiltered ? 'Filtered Selection Summary' : 'Full Dataset Summary'}
+            </h2>
+            <span className="text-xs text-gray-500">{summary.total} reviews</span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <MiniStat label="Avg Rating" value={`⭐ ${summary.avgRating}/5`} />
+            <MiniStat label="Positive" value={`${summary.positivePct}%`} color="text-emerald-400" />
+            <MiniStat label="Negative" value={`${summary.negativePct}%`} color="text-red-400" />
+            <MiniStat label="Would Repurchase" value={`${summary.intentPct}%`} color="text-violet-400" />
+          </div>
+
+          {/* Sentiment bar */}
+          <div className="flex rounded-full overflow-hidden h-2">
+            <div className="bg-emerald-500 h-2" style={{ width: `${summary.positivePct}%` }} />
+            <div className="bg-gray-500 h-2" style={{ width: `${summary.neutralPct}%` }} />
+            <div className="bg-red-500 h-2" style={{ width: `${summary.negativePct}%` }} />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Top themes */}
+            {summary.topThemes.length > 0 && (
+              <div>
+                <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">Top Themes</p>
+                <div className="flex flex-wrap gap-2">
+                  {summary.topThemes.map(({ theme, count }) => (
+                    <span key={theme} className="text-xs bg-blue-900 text-blue-300 px-2 py-1 rounded-full capitalize">
+                      {theme} ({count})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Top archetype + insight */}
+            <div>
+              <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">Dominant Archetype</p>
+              {summary.topArchetype ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-violet-900 text-violet-300 px-2 py-1 rounded-full">
+                    {summary.topArchetype[0]}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {summary.topArchetype[1]} of {summary.total} reviewers ({Math.round((summary.topArchetype[1] / summary.total) * 100)}%)
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xs text-gray-600">No archetype data</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <p className="text-sm text-gray-400">{filtered.length} reviews shown</p>
 
       {/* Review Cards */}
@@ -90,7 +208,6 @@ export default function ConsumerVoicePage() {
           const brandName = review.product?.brand ?? review.brand?.brand_name ?? 'Unknown';
           return (
             <div key={review.reviewId} className="bg-gray-900 rounded-xl p-5 border border-gray-800 space-y-3">
-              {/* Header */}
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-3">
                   <SentimentBadge sentiment={review.sentiment} />
@@ -104,12 +221,8 @@ export default function ConsumerVoicePage() {
                 </div>
               </div>
 
-              {/* Transcript */}
-              <p className="text-sm text-gray-300 leading-relaxed">
-                <HighlightedTranscript text={review.transcript} signals={reviewSignals} />
-              </p>
+              <p className="text-sm text-gray-300 leading-relaxed">{review.transcript}</p>
 
-              {/* Extracted Themes */}
               {reviewSignals.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {Array.from(new Set(reviewSignals.map(s => s.label))).map((label) => (
@@ -118,7 +231,6 @@ export default function ConsumerVoicePage() {
                 </div>
               )}
 
-              {/* User Tags */}
               {review.user?.tags && review.user.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 pt-1 border-t border-gray-800">
                   {review.user.tags.map((tag) => (
@@ -134,9 +246,13 @@ export default function ConsumerVoicePage() {
   );
 }
 
-function HighlightedTranscript({ text, signals }: { text: string; signals: ExtractedSignal[] }) {
-  if (signals.length === 0) return <>{text}</>;
-  return <>{text}</>;
+function MiniStat({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="bg-gray-800 rounded-lg p-3">
+      <p className="text-xs text-gray-500 mb-1">{label}</p>
+      <p className={`text-sm font-bold ${color ?? 'text-white'}`}>{value}</p>
+    </div>
+  );
 }
 
 function SentimentBadge({ sentiment }: { sentiment: string }) {
