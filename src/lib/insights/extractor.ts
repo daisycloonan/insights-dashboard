@@ -283,13 +283,19 @@ if (brandClaims.length > 0 && consumerThemes.length > 0) {
   const claimsStr = brandClaims.slice(0, 3).join(', ');
   const consumerStr = consumerThemes.join(', ');
 
-  if (alignedThemes.length > 0 && unexpectedThemes.length > 0) {
-    claimsVsReality = `Brand leads with ${claimsStr}. Consumers confirm ${alignedThemes.join(', ')} but also focus on ${unexpectedThemes.join(', ')} — not prominent in positioning.`;
-  } else if (alignedThemes.length > 0) {
-    claimsVsReality = `Brand leads with ${claimsStr}. Consumer voice aligns well — primarily discussing ${consumerStr}.`;
-  } else {
-    claimsVsReality = `Brand leads with ${claimsStr}. Consumers focus on ${consumerStr} instead — a potential messaging gap.`;
-  }
+  const BASELINE_THEMES = ['taste', 'packaging', 'hydration'];
+const trulyUnexpected = unexpectedThemes.filter(t => !BASELINE_THEMES.includes(t));
+const confirmed = alignedThemes.filter(t => !BASELINE_THEMES.includes(t));
+
+if (confirmed.length > 0 && trulyUnexpected.length > 0) {
+  claimsVsReality = `Brand leads with ${claimsStr}. Consumers validate ${confirmed.join(', ')} and also surface ${trulyUnexpected.join(', ')} as an unplanned signal worth noting.`;
+} else if (confirmed.length > 0) {
+  claimsVsReality = `Brand leads with ${claimsStr}. Consumer voice strongly aligns — ${consumerStr} all confirmed in reviews.`;
+} else if (trulyUnexpected.length > 0) {
+  claimsVsReality = `Brand leads with ${claimsStr}. Consumers are primarily talking about ${trulyUnexpected.join(', ')} — a gap worth addressing in messaging.`;
+} else {
+  claimsVsReality = `Brand leads with ${claimsStr}. Consumer discussion centres on ${consumerStr} — typical category themes with strong positive sentiment.`;
+}
 } else if (consumerThemes.length > 0) {
   claimsVsReality = `Consumer focus: ${consumerThemes.join(', ')}. No strong brand positioning signals detected.`;
 } else {
