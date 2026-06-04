@@ -60,38 +60,61 @@ function buildFilterSummary(reviews: ReviewIntelligence[]) {
 function buildReviewSummary(review: ReviewIntelligence): string {
   const text = review.transcript;
   const lower = text.toLowerCase();
-  const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 20);
+  const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 30);
 
   const SIGNAL_WORDS = [
     'taste', 'flavour', 'flavor', 'sweet', 'bitter', 'refreshing', 'health', 'natural',
     'organic', 'energy', 'caffeine', 'price', 'expensive', 'value', 'packaging', 'bottle',
     'can', 'design', 'love', 'hate', 'recommend', 'disappointed', 'amazing', 'terrible',
-    'would buy', 'repurchase', 'again', 'prefer', 'compare', 'better', 'worse', 'unique',
-    'different', 'interesting', 'perfect', 'not for me', 'my kind', 'gym', 'workout',
-    'morning', 'evening', 'relax', 'functional', 'cbd', 'kombucha', 'probiotic',
+    'prefer', 'compare', 'better', 'worse', 'unique', 'different', 'interesting', 'perfect',
+    'not for me', 'my kind', 'gym', 'workout', 'morning', 'evening', 'relax', 'functional',
+    'cbd', 'kombucha', 'probiotic', 'would buy', 'buy again', 'repurchase', 'go back',
+    'stand alone', 'mixer', 'alternative', 'light', 'strong', 'balanced', 'overall',
   ];
 
-  const scored = sentences.map(sentence => ({
-    sentence,
-    score: SIGNAL_WORDS.filter(w => sentence.toLowerCase().includes(w)).length,
-  })).sort((a, b) => b.score - a.score);
+  // Bonus words that indicate a verdict or opinion
+  const VERDICT_WORDS = [
+    'i think', 'i feel', 'i love', 'i hate', 'i prefer', 'i would', "i wouldn't",
+    'i like', "i don't like", 'i rate', 'overall', 'verdict', 'recommend', 'not for me',
+    'would go back', 'would not go back', 'buy again', 'stand alone', 'as a mixer',
+    'good option', 'great option', 'not sure', 'definitely', 'personally',
+  ];
 
-  const topSentence = scored[0]?.sentence ?? sentences[0] ?? '';
+  const scored = sentences.map(sentence => {
+    const sl = sentence.toLowerCase();
+    const signalScore = SIGNAL_WORDS.filter(w => sl.includes(w)).length;
+    const verdictScore = VERDICT_WORDS.filter(w => sl.includes(w)).length * 2;
+    const lengthBonus = sentence.length > 60 ? 1 : 0;
+    return {
+      sentence,
+      score: signalScore + verdictScore + lengthBonus,
+    };
+  }).sort((a, b) => b.score - a.score);
 
+  const topSentence = scored[0]?.sentence ?? sentences[0] ?? text.slice(0, 150);
+
+  // Build key facts — only from transcript text, not metadata
   const facts: string[] = [];
-  const positiveWords = ['love', 'amazing', 'great', 'excellent', 'perfect', 'fantastic', 'recommend', 'best'];
+  const positiveWords = ['love', 'amazing', 'great', 'excellent', 'perfect', 'fantastic', 'recommend', 'best', 'i rate'];
   const isPositiveReview = positiveWords.some(w => lower.includes(w));
 
   if (isPositiveReview && review.sentiment === 'positive') facts.push('strong endorsement');
   if (review.sentiment === 'negative') facts.push('critical feedback');
   if (lower.includes('compar') || lower.includes('versus') || lower.includes(' vs ')) facts.push('competitor comparison');
-  if (lower.includes('would buy') || lower.includes('repurchase') || lower.includes('buy again') || review.purchaseIntent) facts.push('repurchase intent');
+
+  // Only flag repurchase if transcript explicitly mentions it
+  const repurchaseWords = ['would buy', 'buy again', 'repurchase', 'would go back', 'buying again', 'purchase again'];
+  if (repurchaseWords.some(w => lower.includes(w))) facts.push('repurchase intent');
+
   if (lower.includes('cbd') || lower.includes('kombucha') || lower.includes('probiotic') || lower.includes('functional')) facts.push('functional benefits');
   if (lower.includes('too sweet') || lower.includes('sweetness')) facts.push('sweetness feedback');
   if (lower.includes('price') || lower.includes('expensive') || lower.includes('value')) facts.push('price sensitivity');
+  if (lower.includes('as a mixer') || lower.includes('mix with') || lower.includes('mixed with')) facts.push('mixer use');
+  if (lower.includes('not sure') || lower.includes('on the fence') || lower.includes('maybe')) facts.push('undecided');
+  if (lower.includes('stand alone') || lower.includes('on its own') || lower.includes('by itself')) facts.push('standalone verdict');
 
   const tagLine = facts.length > 0 ? ` [${facts.join(' · ')}]` : '';
-  return `${topSentence.slice(0, 150)}${topSentence.length > 150 ? '...' : ''}${tagLine}`;
+  return `${topSentence.slice(0, 160)}${topSentence.length > 160 ? '...' : ''}${tagLine}`;
 }
 
 export default function ConsumerVoicePage() {
