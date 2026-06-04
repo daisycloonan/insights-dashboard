@@ -68,8 +68,9 @@ npm start
 ```
 
 ---
-
 ## Project Structure
+
+```
 src/
 ├── app/
 │   ├── overview/          # KPI dashboard + theme analysis
@@ -87,9 +88,8 @@ src/
 ├── types/
 │   └── index.ts           # Shared TypeScript types
 └── components/
-└── NavBar.tsx          # Active-state navigation
-
----
+    └── NavBar.tsx          # Active-state navigation
+```
 
 ## Architecture
 
