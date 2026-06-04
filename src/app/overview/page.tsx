@@ -71,8 +71,9 @@ function buildInsightSummary(theme: ThemeSummary, reviews: ReviewIntelligence[])
     parts.push(`${topBrand[0]} leads with ${topBrand[1]} of ${theme.count} mentions`);
   }
 
-  if (hasTension) {
-    parts.push(`though ${complaintCount} reviews flag friction — sentiment is mixed at ${positivePct}% positive`);
+  const negativePct = Math.round((relevantReviews.filter(r => r.sentiment === 'negative').length / total) * 100);
+  if (negativePct >= 15) {
+    parts.push(`though ${negativePct}% negative sentiment flags real friction`);
   } else {
     parts.push(`${positivePct}% positive sentiment`);
   }
@@ -85,8 +86,10 @@ function buildInsightSummary(theme: ThemeSummary, reviews: ReviewIntelligence[])
     parts.push(`${intentPct}% would repurchase`);
   }
 
-  if (topArchetype) {
+  if (topArchetype && topArchetype[0] !== 'The Wellness Seeker') {
     parts.push(`strongest with ${topArchetype[0].replace('The ', '')}`);
+  } else if (topArchetype && topArchetype[1] >= Math.ceil(total * 0.4)) {
+    parts.push(`dominantly Wellness Seeker-driven`);
   }
 
   return parts.join(' · ') + '.';
