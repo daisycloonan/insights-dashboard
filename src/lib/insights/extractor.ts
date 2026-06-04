@@ -280,26 +280,60 @@ export function generateOpportunities(
 ): Opportunity[] {
   const opportunities: Opportunity[] = [];
 
-  // 1. Occasion mismatch
-  const occasionSignals = signals.filter(s => s.type === 'occasion');
-  const occasionByBrand = new Map<string, string[]>();
-  for (const s of occasionSignals) {
-    if (!occasionByBrand.has(s.brand)) occasionByBrand.set(s.brand, []);
-    occasionByBrand.get(s.brand)!.push(s.label);
+  // 1. Occasion detection — context-aware phrases only
+  const OCCASION_PHRASES: Record<string, string[]> = {
+    'morning routine': ['morning routine', 'start my day', 'wake up', 'breakfast', 'before work', 'first thing'],
+    'post-workout': ['after the gym', 'post workout', 'post-workout', 'after exercise', 'after training', 'after a run', 'recovery drink'],
+    'work desk': ['at my desk', 'during work', 'working from home', 'office drink', 'lunch break', 'between meetings'],
+    'evening wind-down': ['evening', 'wind down', 'after dinner', 'end of the day', 'night time', 'before bed', 'relax after'],
+    'social occasion': ['with friends', 'at a party', 'dinner party', 'sharing with', 'night out', 'gathering', 'hosting'],
+    'weekend treat': ['weekend', 'treat myself', 'saturday', 'sunday', 'day off', 'cheat day'],
+    'on the go': ['on the go', 'commute', 'in the car', 'packed lunch', 'out and about', 'travel'],
+  };
+
+  const occasionByBrand = new Map<string, { occasion: string; quotes: string[] }[]>();
+
+  for (const review of reviews) {
+    const lower = review.transcript.toLowerCase();
+    const brand = review.product?.brand ?? review.brand?.brand_name ?? '';
+    if (!brand) continue;
+
+    for (const [occasion, phrases] of Object.entries(OCCASION_PHRASES)) {
+      const matchedPhrase = phrases.find(p => lower.includes(p));
+      if (matchedPhrase) {
+        // Extract the sentence containing the phrase
+        const sentences = review.transcript.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+        const evidenceSentence = sentences.find(s => s.toLowerCase().includes(matchedPhrase));
+        if (!evidenceSentence) continue;
+
+        if (!occasionByBrand.has(brand)) occasionByBrand.set(brand, []);
+        const existing = occasionByBrand.get(brand)!.find(o => o.occasion === occasion);
+        if (existing) {
+          existing.quotes.push(evidenceSentence);
+        } else {
+          occasionByBrand.get(brand)!.push({ occasion, quotes: [evidenceSentence] });
+        }
+      }
+    }
   }
+
   for (const [brand, occasions] of occasionByBrand.entries()) {
-    const topOccasion = occasions[0];
-    const brandData = brandInsights.find(b => b.brandName === brand);
-    if (brandData && topOccasion && !brandData.positioning.toLowerCase().includes(topOccasion)) {
-      opportunities.push({
-        id: `occasion-${brand}`,
-        title: `${brand} associated with "${topOccasion}" — not reflected in positioning`,
-        explanation: `Consumers mention "${topOccasion}" frequently when reviewing ${brand} products, but this occasion is not prominent in brand positioning. This represents an untapped messaging opportunity.`,
-        evidence: occasionSignals.filter(s => s.brand === brand).slice(0, 3).map(s => s.evidenceQuote),
-        impactedBrands: [brand],
-        impactedProducts: productInsights.filter(p => p.brand === brand).map(p => p.productName),
-        type: 'occasion',
-      });
+    // Only surface occasions mentioned 2+ times
+    const significant = occasions.filter(o => o.quotes.length >= 2);
+    for (const { occasion, quotes } of significant) {
+      const brandData = brandInsights.find(b => b.brandName === brand);
+      const positioningMention = brandData?.positioning.toLowerCase().includes(occasion.split(' ')[0]);
+      if (!positioningMention) {
+        opportunities.push({
+          id: `occasion-${brand}-${occasion}`,
+          title: `"${occasion}" is an emerging occasion for ${brand}`,
+          explanation: `${quotes.length} reviewers naturally associate ${brand} with "${occasion}" — but this occasion isn't reflected in brand positioning. This is a credible, evidence-backed messaging opportunity.`,
+          evidence: quotes.slice(0, 3),
+          impactedBrands: [brand],
+          impactedProducts: productInsights.filter(p => p.brand === brand).map(p => p.productName),
+          type: 'occasion',
+        });
+      }
     }
   }
 
@@ -311,7 +345,7 @@ export function generateOpportunities(
       opportunities.push({
         id: `price-${product.productId}`,
         title: `Price-quality tension for ${product.productName}`,
-        explanation: `${product.productName} is positioned as premium (£${product.priceGBP}) but has ${complaintSignals.length} complaint signals. Consumers may not feel the price is justified.`,
+        explanation: `${product.productName} is positioned as premium (£${product.priceGBP}) but has ${complaintSignals.length} complaint signals. Consumers may not feel the price is justified by the experience.`,
         evidence: [...priceSignals, ...complaintSignals].slice(0, 3).map(s => s.evidenceQuote),
         impactedBrands: [product.brand],
         impactedProducts: [product.productName],
@@ -320,38 +354,59 @@ export function generateOpportunities(
     }
   }
 
-  // 3. Common complaints
-  const complaintSignals = signals.filter(s => s.type === 'complaint');
-  if (complaintSignals.length > 5) {
-    opportunities.push({
-      id: 'category-complaints',
-      title: 'Widespread friction points across the category',
-      explanation: `${complaintSignals.length} complaint signals detected across the category. Common friction points represent whitespace for brands that can credibly address them.`,
-      evidence: complaintSignals.slice(0, 4).map(s => s.evidenceQuote),
-      impactedBrands: [...new Set(complaintSignals.map(s => s.brand))],
-      impactedProducts: [...new Set(complaintSignals.map(s => s.productId))],
-      type: 'complaint',
-    });
+  // 3. Common complaints — only surface specific complaint themes
+  const SPECIFIC_COMPLAINTS: Record<string, string[]> = {
+    'sweetness level': ['too sweet', 'not sweet enough', 'sweetness', 'sugary'],
+    'aftertaste': ['aftertaste', 'after taste', 'lingers', 'bitter aftertaste'],
+    'carbonation': ['too fizzy', 'not fizzy', 'flat', 'carbonation', 'too much gas'],
+    'value for money': ['overpriced', 'expensive for', 'not worth', 'too expensive', 'price is high'],
+    'flavour intensity': ['too weak', 'watery', 'bland', 'not enough flavour', 'too subtle'],
+  };
+
+  for (const [complaintTheme, keywords] of Object.entries(SPECIFIC_COMPLAINTS)) {
+    const matchingReviews = reviews.filter(r =>
+      keywords.some(k => r.transcript.toLowerCase().includes(k))
+    );
+    if (matchingReviews.length >= 3) {
+      const affectedBrands = [...new Set(matchingReviews.map(r => r.product?.brand ?? r.brand?.brand_name ?? '').filter(Boolean))];
+      const quotes = matchingReviews
+        .map(r => {
+          const sentences = r.transcript.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+          return sentences.find(s => keywords.some(k => s.toLowerCase().includes(k))) ?? '';
+        })
+        .filter(Boolean)
+        .slice(0, 3);
+
+      opportunities.push({
+        id: `complaint-${complaintTheme}`,
+        title: `"${complaintTheme}" is a recurring friction point across ${affectedBrands.length} brands`,
+        explanation: `${matchingReviews.length} reviews mention ${complaintTheme} as a concern. This is a category-wide issue that a brand addressing it credibly could turn into a differentiator.`,
+        evidence: quotes,
+        impactedBrands: affectedBrands,
+        impactedProducts: [...new Set(matchingReviews.map(r => r.product?.productName ?? '').filter(Boolean))],
+        type: 'complaint',
+      });
+    }
   }
 
-  // 4. Underserved segments
-  const archetypes = reviews.map(r => r.archetype).filter(Boolean);
+  // 4. Underserved segments — only show archetypes with very low representation
+  const archetypes = reviews.map(r => r.archetype).filter(a => a && a !== 'Unknown') as string[];
   const archetypeCounts = archetypes.reduce<Record<string, number>>((acc, a) => {
     acc[a] = (acc[a] ?? 0) + 1;
     return acc;
   }, {});
-  const underserved = Object.entries(archetypeCounts).filter(([, count]) => count <= 3);
-  for (const [archetype] of underserved) {
+  const totalReviews = archetypes.length;
+  const underserved = Object.entries(archetypeCounts).filter(([, count]) => count / totalReviews < 0.08);
+
+  for (const [archetype, count] of underserved) {
+    const archetypeReviews = reviews.filter(r => r.archetype === archetype);
+    const avgRating = archetypeReviews.reduce((a, r) => a + r.rating, 0) / (archetypeReviews.length || 1);
     opportunities.push({
       id: `segment-${archetype}`,
-      title: `Underserved consumer segment: ${archetype}`,
-      explanation: `The "${archetype}" archetype appears in very few reviews, suggesting this segment is either not engaged or not well served by current products in the category.`,
-      evidence: reviews
-        .filter(r => r.archetype === archetype)
-        .map(r => r.transcript.slice(0, 100)),
-      impactedBrands: [...new Set(reviews
-        .filter(r => r.archetype === archetype)
-        .map(r => r.brand?.brand_name ?? ''))],
+      title: `"${archetype.replace('The ', '')}" is underrepresented — only ${count} of ${totalReviews} reviewers`,
+      explanation: `This segment makes up only ${Math.round((count / totalReviews) * 100)}% of reviewers despite being a plausible target for functional beverages. Their avg rating is ${Math.round(avgRating * 10) / 10}/5 — worth understanding whether this reflects low engagement or unmet needs.`,
+      evidence: archetypeReviews.map(r => r.transcript.slice(0, 120)).slice(0, 3),
+      impactedBrands: [...new Set(archetypeReviews.map(r => r.brand?.brand_name ?? r.product?.brand ?? '').filter(Boolean))],
       impactedProducts: [],
       type: 'segment',
     });
