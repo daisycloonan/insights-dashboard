@@ -20,7 +20,7 @@ Early ideas for structure:
 - A deep-diving exploration tab
 - A further steps / opportunities tab
 
-Core tension: do I build a product-specific tool or something holistic covering the whole category? Decided to go holistic — five views covering overview, consumer voice, products, brands, and opportunities. In retrospect this was probably too ambitious for the timebox. A tighter two or three view app with more depth might have told a clearer narrative. Should have reassessed scope earlier rather than committing to all five views upfront.
+Core tension: do I build a product-specific tool or something holistic covering the whole category? Decided to go holistic — five views covering overview, consumer voice, products, brands, and opportunities. In retrospect this was probably too ambitious for the project timeframe. A tighter two or three view app with more depth might have told a clearer narrative. Should have reassessed scope earlier rather than committing to all five views upfront.
 
 ---
 

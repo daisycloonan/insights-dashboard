@@ -9,7 +9,7 @@
 
 BevIntel is a client-facing brand intelligence dashboard that transforms four raw data files into a commercial insight tool for beverage brand teams. The application is structured around five views, each designed to answer a different commercial question:
 
-- **Overview** — What is the category doing overall?
+- **Overview** — How is the category doing overall?
 - **Consumer Voice** — What are consumers actually saying?
 - **Products** — How are individual products performing?
 - **Brands** — How do brands compare?
@@ -121,7 +121,7 @@ Catalogue-only products and brands are preserved throughout and used for competi
 
 ## Assumptions and Tradeoffs
 
-**Keyword-based signal extraction over ML** — chosen for explainability and speed. Every signal includes the transcript evidence that generated it. A production system would benefit from a fine-tuned classification model, but the keyword approach produces commercially useful and verifiable outputs within the timebox.
+**Keyword-based signal extraction over ML** — chosen for explainability and speed. Every signal includes the transcript evidence that generated it. A production system would benefit from a fine-tuned classification model, but the keyword approach produces commercially useful and verifiable outputs within the project timeframe.
 
 **Data-driven summaries over AI-generated ones** — the application includes an Anthropic API integration for theme summaries, but also a full data-driven fallback that produces genuinely useful insights without any API dependency. Given the small dataset, the heuristic approach performs well and keeps the app fully functional without external dependencies.
 
@@ -129,13 +129,14 @@ Catalogue-only products and brands are preserved throughout and used for competi
 
 **Prioritised information accessibility over exhaustive display** — the overview page was designed to give a commercial user the most important signals at a glance. Some fields (retailer availability, companion products, social handles) are not displayed but could be added in a future iteration.
 
-**Scope was ambitious for the timebox** — five views in four hours meant each view is functional but none is as deep as it could be. In retrospect, two or three views done with more depth and a clearer narrative flow would have made a stronger submission.
+**Scope was ambitious for the timeframe** — five views in four hours meant each view is functional but none is as deep as it could be. In retrospect, two or three views done with more depth and a clearer narrative flow would have made a stronger submission.
 
 ---
 
 ## AI Tool Usage
 
-The brief was initially run through ChatGPT to generate a broad directional read, and that output was used to write a refined prompt for Claude to help scaffold and build the application. Claude was used throughout development as a coding assistant — helping with TypeScript types, data joining logic, insight extraction, and page components. All output was reviewed and tested against the actual dataset. Insight logic, data joins, and commercial framing decisions were directed and verified throughout.
+My approach was to build a quick version of the final output to use as a springboard and mould into what I wanted, almost like a working backwards approach, start with the output to reassess the input logic.
+The brief was initially run through ChatGPT to generate a broad directional read, and that output was used to write a refined prompt for Claude to help scaffold and build the application. Claude was used throughout development as a coding assistant — helping with TypeScript types, data joining logic, insight extraction, and page components. Insight logic, data joins, and commercial framing decisions were directed and verified throughout.
 
 ---
 
@@ -146,11 +147,13 @@ The brief was initially run through ChatGPT to generate a broad directional read
 **Stronger NLP** — replacing keyword matching with a lightweight embeddings-based classifier would improve signal accuracy, especially for nuanced signals like occasion detection and sentiment nuance.
 
 **Additional data I would want:**
+- **Longitudinal review data** — reviews over time would enable trend detection. Before the brief was sent, I assumed there would be a temporal aspect to the data. Insight into how a product is performing compared to previous periods would be my no.1 next step and would offer better context for the opportunities section.
 - **Retailer sales data** — units sold per product per retailer would allow the dashboard to weight insights by commercial impact rather than review volume
-- **Social listening data** — mentions and sentiment from Instagram/TikTok would validate whether transcript signals reflect broader consumer behaviour
-- **Longitudinal review data** — reviews over time would enable trend detection
-- **Competitor transcript data** — reviews of Trip, DASH, Hip Pop and other catalogue-only brands would unlock full competitive comparison
+- **Social media data** — mentions and sentiment from Instagram/TikTok could validate whether transcript signals reflect broader consumer behaviour
+- **Competitor transcript data** — reviews of Trip, DASH, Hip Pop and other catalogue-only brands would unlock full competitive comparison, and better align the suggestions in the opportunities section with competitors.
 
-**Richer opportunity engine** — with more data, opportunities could be ranked by estimated commercial impact rather than signal frequency.
+**Richer opportunity engine** — with more data, opportunities could be ranked by estimated commercial impact rather than signal frequency. For instance, previous avenues pursued or access to current ideas the teams are working on.
 
 **Export functionality** — allowing a user to export insight cards, opportunity summaries, or filtered transcript sets as PDFs for use in presentations or strategy documents.
+
+**Data Verification** - I would maybe add a quick tool or maybe even an Excel spreadsheet to cross-check that the data was being pulled in correctly. For the timeframe of the project, I did this check using Claude.
