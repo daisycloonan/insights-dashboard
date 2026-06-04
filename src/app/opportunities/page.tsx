@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react';
 import { loadAllData } from '@/lib/data/loader';
 import { extractSignals, buildBrandInsights, buildProductInsights, generateOpportunities } from '@/lib/insights/extractor';
-import { Opportunity } from '@/types';
+import { Opportunity, ReviewIntelligence } from '@/types';
 
 export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [reviews, setReviews] = useState<ReviewIntelligence[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<'all' | Opportunity['type']>('all');
+  const [expandedEvidence, setExpandedEvidence] = useState<string | null>(null);
 
   useEffect(() => {
     loadAllData().then((data) => {
@@ -17,6 +19,7 @@ export default function OpportunitiesPage() {
       const productInsights = buildProductInsights(data, signals);
       const opps = generateOpportunities(data, signals, brandInsights, productInsights);
       setOpportunities(opps);
+      setReviews(data);
       setLoading(false);
     });
   }, []);
@@ -71,31 +74,61 @@ export default function OpportunitiesPage() {
         {filtered.map((opp) => (
           <div key={opp.id} className="bg-gray-900 rounded-xl p-6 border border-gray-800 space-y-4">
             {/* Header */}
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">{typeEmoji(opp.type)}</span>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <TypeBadge type={opp.type} />
-                  </div>
-                  <h3 className="font-bold text-white text-lg leading-snug">{opp.title}</h3>
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">{typeEmoji(opp.type)}</span>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <TypeBadge type={opp.type} />
                 </div>
+                <h3 className="font-bold text-white text-lg leading-snug">{opp.title}</h3>
               </div>
             </div>
 
-            {/* Explanation */}
-            <p className="text-sm text-gray-300 leading-relaxed">{opp.explanation}</p>
+            {/* Explanation — no boilerplate */}
+            <p className="text-sm text-gray-300 leading-relaxed">
+              {stripBoilerplate(opp.explanation)}
+            </p>
 
             {/* Evidence Quotes */}
             {opp.evidence.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Supporting Evidence</p>
                 <div className="space-y-2">
-                  {opp.evidence.slice(0, 3).map((quote, i) => (
-                    <div key={i} className="bg-gray-800 rounded-lg px-4 py-3 border-l-4 border-emerald-600">
-                      <p className="text-sm text-gray-300 italic">"{quote}"</p>
-                    </div>
-                  ))}
+                  {opp.evidence.slice(0, 3).map((quote, i) => {
+                    const fullReview = findFullReview(quote, reviews);
+                    return (
+                      <div key={i} className="bg-gray-800 rounded-lg px-4 py-3 border-l-4 border-emerald-600">
+                        <p className="text-sm text-gray-300 italic">"{quote}"</p>
+                        {fullReview && (
+                          <button
+                            onClick={() => setExpandedEvidence(
+                              expandedEvidence === `${opp.id}-${i}` ? null : `${opp.id}-${i}`
+                            )}
+                            className="text-xs text-emerald-400 hover:text-emerald-300 mt-2 transition-colors"
+                          >
+                            {expandedEvidence === `${opp.id}-${i}` ? '▲ Hide full review' : '▼ See full review'}
+                          </button>
+                        )}
+                        {expandedEvidence === `${opp.id}-${i}` && fullReview && (
+                          <div className="mt-3 pt-3 border-t border-gray-700 space-y-2">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <span className="text-xs font-medium text-white">{fullReview.product?.productName ?? 'Unknown'}</span>
+                              <span className="text-xs text-gray-500">{fullReview.product?.brand ?? ''}</span>
+                              <span className="text-xs text-gray-400">⭐ {fullReview.rating}/5</span>
+                              <SentimentBadge sentiment={fullReview.sentiment} />
+                              {fullReview.archetype && (
+                                <span className="text-xs bg-gray-700 px-2 py-0.5 rounded-full">{fullReview.archetype}</span>
+                              )}
+                              {fullReview.purchaseIntent && (
+                                <span className="text-xs text-emerald-400">✓ Would repurchase</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-400 leading-relaxed">{fullReview.transcript}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -134,6 +167,19 @@ export default function OpportunitiesPage() {
   );
 }
 
+function stripBoilerplate(text: string): string {
+  return text
+    .replace(/This is a credible, evidence-backed messaging opportunity\./gi, '')
+    .replace(/This represents an untapped messaging opportunity\./gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function findFullReview(quote: string, reviews: ReviewIntelligence[]): ReviewIntelligence | null {
+  const cleanQuote = quote.toLowerCase().trim().slice(0, 40);
+  return reviews.find(r => r.transcript.toLowerCase().includes(cleanQuote)) ?? null;
+}
+
 function typeEmoji(type: string): string {
   const map: Record<string, string> = {
     occasion: '📅',
@@ -156,6 +202,19 @@ function TypeBadge({ type }: { type: string }) {
   return (
     <span className={`text-xs px-2 py-0.5 rounded-full font-semibold capitalize ${styles[type] ?? 'bg-gray-700 text-gray-300'}`}>
       {type}
+    </span>
+  );
+}
+
+function SentimentBadge({ sentiment }: { sentiment: string }) {
+  const styles: Record<string, string> = {
+    positive: 'bg-emerald-900 text-emerald-300',
+    negative: 'bg-red-900 text-red-300',
+    neutral: 'bg-gray-700 text-gray-300',
+  };
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full ${styles[sentiment] ?? styles.neutral}`}>
+      {sentiment}
     </span>
   );
 }
