@@ -3,23 +3,105 @@
 import { useEffect, useState, useMemo } from 'react';
 import { loadAllData, loadAllProducts } from '@/lib/data/loader';
 import { extractSignals, buildProductInsights } from '@/lib/insights/extractor';
-import { ProductInsight, RawProduct } from '@/types';
+import { ProductInsight, RawProduct, ReviewIntelligence } from '@/types';
+
+function buildProductSummary(product: ProductInsight, reviews: ReviewIntelligence[]): string {
+  const productReviews = reviews.filter(r => r.product?.productId === product.productId);
+  if (productReviews.length === 0) return 'No review data available.';
+
+  const total = productReviews.length;
+  const positiveCount = productReviews.filter(r => r.sentiment === 'positive').length;
+  const positivePct = Math.round((positiveCount / total) * 100);
+  const intentCount = productReviews.filter(r => r.purchaseIntent).length;
+  const intentPct = Math.round((intentCount / total) * 100);
+
+  // Top archetype
+  const archetypeCounts = productReviews.reduce<Record<string, number>>((acc, r) => {
+    const a = r.archetype;
+    if (a && a !== 'Unknown') acc[a] = (acc[a] ?? 0) + 1;
+    return acc;
+  }, {});
+  const topArchetype = Object.entries(archetypeCounts).sort((a, b) => b[1] - a[1])[0];
+
+  // Complaint signals
+  const COMPLAINT_WORDS = ['disappointed', 'bad', 'terrible', 'awful', 'hate', 'too sweet', 'bland', 'weak', 'watery', 'overpriced'];
+  const complaintCount = productReviews.filter(r =>
+    COMPLAINT_WORDS.some(w => r.transcript.toLowerCase().includes(w))
+  ).length;
+
+  // Standout quotes — find most signal-rich sentence across all reviews
+  const SIGNAL_WORDS = ['love', 'amazing', 'perfect', 'recommend', 'best', 'favourite', 'unique', 'different', 'refreshing', 'natural', 'healthy'];
+  let bestSentence = '';
+  let bestScore = 0;
+  for (const review of productReviews) {
+    const sentences = review.transcript.split(/[.!?]+/).map((s: string) => s.trim()).filter((s: string) => s.length > 30);
+    for (const sentence of sentences) {
+      const score = SIGNAL_WORDS.filter(w => sentence.toLowerCase().includes(w)).length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestSentence = sentence;
+      }
+    }
+  }
+
+  const parts: string[] = [];
+
+  // Opening
+  if (positivePct >= 90) {
+    parts.push(`Strongly received across all ${total} reviews`);
+  } else if (positivePct >= 70) {
+    parts.push(`Generally positive across ${total} reviews (${positivePct}% positive)`);
+  } else {
+    parts.push(`Mixed reception across ${total} reviews (${positivePct}% positive)`);
+  }
+
+  // Archetype
+  if (topArchetype) {
+    const archetypePct = Math.round((topArchetype[1] / total) * 100);
+    parts.push(`led by ${topArchetype[0].replace('The ', '')}s (${archetypePct}%)`);
+  }
+
+  // Top themes
+  if (product.topThemes.length > 0) {
+    parts.push(`${product.topThemes.slice(0, 2).join(' and ')} are the dominant consumer themes`);
+  }
+
+  // Complaints
+  if (complaintCount >= 3) {
+    parts.push(`${complaintCount} reviews flag friction points worth monitoring`);
+  }
+
+  // Repurchase
+  if (intentPct >= 85) {
+    parts.push(`${intentPct}% would repurchase — a strong commercial signal`);
+  } else if (intentPct >= 60) {
+    parts.push(`${intentPct}% expressed repurchase intent`);
+  } else {
+    parts.push(`only ${intentPct}% would repurchase — below category average`);
+  }
+
+  const opening = parts[0];
+  const rest = parts.slice(1);
+  return `${opening}, ${rest.join(', ')}.`;
+}
 
 export default function ProductsPage() {
   const [productInsights, setProductInsights] = useState<ProductInsight[]>([]);
-  const [allProducts, setAllProducts] = useState<RawProduct[]>([]);
-  const [loading, setLoading] = useState(true);
+const [allProducts, setAllProducts] = useState<RawProduct[]>([]);
+const [reviews, setReviews] = useState<ReviewIntelligence[]>([]);
+const [loading, setLoading] = useState(true);
   const [filterTier, setFilterTier] = useState('all');
   const [filterBrand, setFilterBrand] = useState('all');
   const [sortBy, setSortBy] = useState<'avgRating' | 'sentimentScore' | 'priceGBP' | 'reviewCount'>('reviewCount');
 
   useEffect(() => {
-    Promise.all([loadAllData(), loadAllProducts()]).then(([reviews, products]) => {
-      const signals = extractSignals(reviews);
-      setProductInsights(buildProductInsights(reviews, signals));
-      setAllProducts(products);
-      setLoading(false);
-    });
+    Promise.all([loadAllData(), loadAllProducts()]).then(([data, products]) => {
+  const signals = extractSignals(data);
+  setProductInsights(buildProductInsights(data, signals));
+  setAllProducts(products);
+  setReviews(data);
+  setLoading(false);
+});
   }, []);
 
   const brands = useMemo(() => ['all', ...Array.from(new Set(productInsights.map(p => p.brand)))], [productInsights]);
@@ -124,10 +206,17 @@ export default function ProductsPage() {
             )}
 
             {/* Claims vs Reality */}
-            <div className="bg-gray-800 rounded-lg p-3">
-              <p className="text-xs text-gray-500 mb-1 font-medium">Claims vs Consumer Reality</p>
-              <p className="text-xs text-gray-300 leading-relaxed">{product.claimsVsReality}</p>
-            </div>
+            {/* AI Summary */}
+<div className="bg-gray-800 rounded-lg p-3 border-l-4 border-emerald-700">
+  <p className="text-xs text-emerald-400 font-semibold mb-1 uppercase tracking-wide">Product Summary</p>
+  <p className="text-xs text-gray-300 leading-relaxed">{buildProductSummary(product, reviews)}</p>
+</div>
+
+{/* Claims vs Reality */}
+<div className="bg-gray-800 rounded-lg p-3">
+  <p className="text-xs text-gray-500 mb-1 font-medium">Claims vs Consumer Reality</p>
+  <p className="text-xs text-gray-300 leading-relaxed">{product.claimsVsReality}</p>
+</div>
           </div>
         ))}
       </div>
