@@ -27,13 +27,11 @@ function buildFilterSummary(reviews: ReviewIntelligence[]) {
   const neutralCount = reviews.filter(r => r.sentiment === 'neutral').length;
   const intentCount = reviews.filter(r => r.purchaseIntent).length;
 
-  // Top themes
   const themeCounts = Object.entries(THEME_KEYWORDS_MAP).map(([theme, keywords]) => ({
     theme,
     count: reviews.filter(r => keywords.some(k => r.transcript.toLowerCase().includes(k))).length,
   })).filter(t => t.count > 0).sort((a, b) => b.count - a.count).slice(0, 3);
 
-  // Top archetype
   const archetypeCounts = reviews.reduce<Record<string, number>>((acc, r) => {
     const a = r.archetype;
     if (a && a !== 'Unknown') acc[a] = (acc[a] ?? 0) + 1;
@@ -41,7 +39,6 @@ function buildFilterSummary(reviews: ReviewIntelligence[]) {
   }, {});
   const topArchetype = Object.entries(archetypeCounts).sort((a, b) => b[1] - a[1])[0];
 
-  // Avg rating
   const avgRating = reviews.reduce((a, r) => a + r.rating, 0) / total;
 
   return {
@@ -65,7 +62,6 @@ function buildReviewSummary(review: ReviewIntelligence): string {
   const lower = text.toLowerCase();
   const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 20);
 
-  // Score each sentence by how many insight signals it contains
   const SIGNAL_WORDS = [
     'taste', 'flavour', 'flavor', 'sweet', 'bitter', 'refreshing', 'health', 'natural',
     'organic', 'energy', 'caffeine', 'price', 'expensive', 'value', 'packaging', 'bottle',
@@ -82,13 +78,9 @@ function buildReviewSummary(review: ReviewIntelligence): string {
 
   const topSentence = scored[0]?.sentence ?? sentences[0] ?? '';
 
-  // Build key facts
   const facts: string[] = [];
-
   const positiveWords = ['love', 'amazing', 'great', 'excellent', 'perfect', 'fantastic', 'recommend', 'best'];
-  const negativeWords = ['hate', 'disappointed', 'terrible', 'awful', 'bad', 'not for me', 'would not', "wouldn't"];
   const isPositiveReview = positiveWords.some(w => lower.includes(w));
-  const isNegativeReview = negativeWords.some(w => lower.includes(w));
 
   if (isPositiveReview && review.sentiment === 'positive') facts.push('strong endorsement');
   if (review.sentiment === 'negative') facts.push('critical feedback');
@@ -99,7 +91,6 @@ function buildReviewSummary(review: ReviewIntelligence): string {
   if (lower.includes('price') || lower.includes('expensive') || lower.includes('value')) facts.push('price sensitivity');
 
   const tagLine = facts.length > 0 ? ` [${facts.join(' · ')}]` : '';
-
   return `${topSentence.slice(0, 150)}${topSentence.length > 150 ? '...' : ''}${tagLine}`;
 }
 
@@ -136,7 +127,6 @@ export default function ConsumerVoicePage() {
   }, [reviews, search, filterSentiment, filterBrand, filterArchetype]);
 
   const summary = useMemo(() => buildFilterSummary(filtered), [filtered]);
-
   const isFiltered = search !== '' || filterSentiment !== 'all' || filterBrand !== 'all' || filterArchetype !== 'all';
 
   if (loading) return <LoadingScreen />;
@@ -200,7 +190,6 @@ export default function ConsumerVoicePage() {
             <MiniStat label="Would Repurchase" value={`${summary.intentPct}%`} color="text-violet-400" />
           </div>
 
-          {/* Sentiment bar */}
           <div className="flex rounded-full overflow-hidden h-2">
             <div className="bg-emerald-500 h-2" style={{ width: `${summary.positivePct}%` }} />
             <div className="bg-gray-500 h-2" style={{ width: `${summary.neutralPct}%` }} />
@@ -208,7 +197,6 @@ export default function ConsumerVoicePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Top themes */}
             {summary.topThemes.length > 0 && (
               <div>
                 <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">Top Themes</p>
@@ -221,8 +209,6 @@ export default function ConsumerVoicePage() {
                 </div>
               </div>
             )}
-
-            {/* Top archetype + insight */}
             <div>
               <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">Dominant Archetype</p>
               {summary.topArchetype ? (
@@ -251,6 +237,7 @@ export default function ConsumerVoicePage() {
           const brandName = review.product?.brand ?? review.brand?.brand_name ?? 'Unknown';
           return (
             <div key={review.reviewId} className="bg-gray-900 rounded-xl p-5 border border-gray-800 space-y-3">
+              {/* Header */}
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-3">
                   <SentimentBadge sentiment={review.sentiment} />
@@ -264,21 +251,22 @@ export default function ConsumerVoicePage() {
                 </div>
               </div>
 
-              {/* AI-style summary */}
-<div className="bg-gray-800 rounded-lg px-4 py-2 border-l-4 border-emerald-700">
-  <p className="text-xs text-emerald-400 font-semibold mb-1 uppercase tracking-wide">Key Takeaway</p>
-  <p className="text-xs text-gray-300 leading-relaxed">{buildReviewSummary(review)}</p>
-</div>
+              {/* Key Takeaway */}
+              <div className="bg-gray-800 rounded-lg px-4 py-2 border-l-4 border-emerald-700">
+                <p className="text-xs text-emerald-400 font-semibold mb-1 uppercase tracking-wide">Key Takeaway</p>
+                <p className="text-xs text-gray-300 leading-relaxed">{buildReviewSummary(review)}</p>
+              </div>
 
-{/* Full transcript — collapsed by default */}
-<details className="group">
-  <summary className="text-xs text-gray-500 hover:text-gray-300 cursor-pointer list-none flex items-center gap-1">
-    <span className="group-open:hidden">▼ Read full transcript</span>
-    <span className="hidden group-open:inline">▲ Hide transcript</span>
-  </summary>
-  <p className="text-sm text-gray-400 leading-relaxed mt-2">{review.transcript}</p>
-</details>
+              {/* Full transcript */}
+              <details className="group">
+                <summary className="text-xs text-gray-500 hover:text-gray-300 cursor-pointer list-none flex items-center gap-1">
+                  <span className="group-open:hidden">▼ Read full transcript</span>
+                  <span className="hidden group-open:inline">▲ Hide transcript</span>
+                </summary>
+                <p className="text-sm text-gray-400 leading-relaxed mt-2">{review.transcript}</p>
+              </details>
 
+              {/* Theme tags */}
               {reviewSignals.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {Array.from(new Set(reviewSignals.map(s => s.label))).map((label) => (
@@ -287,11 +275,15 @@ export default function ConsumerVoicePage() {
                 </div>
               )}
 
+              {/* User tags */}
               {review.user?.tags && review.user.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 pt-1 border-t border-gray-800">
-                  {review.user.tags.map((tag) => (
+                  {review.user.tags.slice(0, 4).map((tag) => (
                     <span key={tag} className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">{tag}</span>
                   ))}
+                  {review.user.tags.length > 4 && (
+                    <span className="text-xs text-gray-600 px-2 py-0.5">+{review.user.tags.length - 4} more</span>
+                  )}
                 </div>
               )}
             </div>
