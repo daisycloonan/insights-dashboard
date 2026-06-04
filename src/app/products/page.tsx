@@ -93,6 +93,7 @@ const [loading, setLoading] = useState(true);
   const [filterTier, setFilterTier] = useState('all');
   const [filterBrand, setFilterBrand] = useState('all');
   const [sortBy, setSortBy] = useState<'avgRating' | 'sentimentScore' | 'priceGBP' | 'reviewCount'>('reviewCount');
+const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
 
   useEffect(() => {
     Promise.all([loadAllData(), loadAllProducts()]).then(([data, products]) => {
@@ -108,11 +109,11 @@ const [loading, setLoading] = useState(true);
   const tiers = ['all', 'budget', 'mid', 'premium'];
 
   const filtered = useMemo(() => {
-    return productInsights
-      .filter(p => filterTier === 'all' || p.priceTier === filterTier)
-      .filter(p => filterBrand === 'all' || p.brand === filterBrand)
-      .sort((a, b) => b[sortBy] - a[sortBy]);
-  }, [productInsights, filterTier, filterBrand, sortBy]);
+  return productInsights
+    .filter(p => filterTier === 'all' || p.priceTier === filterTier)
+    .filter(p => filterBrand === 'all' || p.brand === filterBrand)
+    .sort((a, b) => sortDir === 'desc' ? b[sortBy] - a[sortBy] : a[sortBy] - b[sortBy]);
+}, [productInsights, filterTier, filterBrand, sortBy, sortDir]);
 
   const catalogueOnly = allProducts.filter(
     p => !productInsights.find(pi => pi.productId === p.productId)
@@ -162,15 +163,21 @@ const [loading, setLoading] = useState(true);
           {tiers.map(t => <option key={t} value={t}>{t === 'all' ? 'All Price Tiers' : t}</option>)}
         </select>
         <select
-          value={sortBy}
-          onChange={e => setSortBy(e.target.value as typeof sortBy)}
-          className="bg-gray-800 text-gray-100 rounded-lg px-4 py-2 text-sm border border-gray-700 focus:outline-none focus:border-emerald-500"
-        >
-          <option value="reviewCount">Sort by Reviews</option>
-          <option value="avgRating">Sort by Rating</option>
-          <option value="sentimentScore">Sort by Sentiment</option>
-          <option value="priceGBP">Sort by Price</option>
-        </select>
+  value={sortBy}
+  onChange={e => setSortBy(e.target.value as typeof sortBy)}
+  className="bg-gray-800 text-gray-100 rounded-lg px-4 py-2 text-sm border border-gray-700 focus:outline-none focus:border-emerald-500"
+>
+  <option value="reviewCount">Sort by Reviews</option>
+  <option value="avgRating">Sort by Rating</option>
+  <option value="sentimentScore">Sort by Sentiment</option>
+  <option value="priceGBP">Sort by Price</option>
+</select>
+<button
+  onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+  className="bg-gray-800 text-gray-100 rounded-lg px-4 py-2 text-sm border border-gray-700 hover:border-emerald-500 transition-colors whitespace-nowrap"
+>
+  {sortDir === 'desc' ? '↓ High to Low' : '↑ Low to High'}
+</button>
       </div>
 
       {/* Product Cards */}
