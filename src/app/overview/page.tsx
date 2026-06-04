@@ -5,19 +5,40 @@ import { loadAllData } from '@/lib/data/loader';
 import { extractSignals, summariseThemes, buildBrandInsights } from '@/lib/insights/extractor';
 import { ReviewIntelligence, ThemeSummary, BrandInsight } from '@/types';
 
+interface ThemeWithSummary extends ThemeSummary {
+  consensusSummary?: string;
+}
+
 export default function OverviewPage() {
   const [reviews, setReviews] = useState<ReviewIntelligence[]>([]);
-  const [themes, setThemes] = useState<ThemeSummary[]>([]);
+  const [themes, setThemes] = useState<ThemeWithSummary[]>([]);
   const [brandInsights, setBrandInsights] = useState<BrandInsight[]>([]);
   const [loading, setLoading] = useState(true);
+  const [summariesLoading, setSummariesLoading] = useState(false);
 
   useEffect(() => {
-    loadAllData().then((data) => {
+    loadAllData().then(async (data) => {
       const signals = extractSignals(data);
+      const rawThemes = summariseThemes(signals, data);
       setReviews(data);
-      setThemes(summariseThemes(signals, data));
+      setThemes(rawThemes);
       setBrandInsights(buildBrandInsights(data, signals));
       setLoading(false);
+
+      // Now generate AI summaries for top themes
+      setSummariesLoading(true);
+      const topThemes = rawThemes.slice(0, 6);
+      const updated = await Promise.all(
+        topThemes.map(async (theme) => {
+          const summary = await generateThemeSummary(theme, data);
+          return { ...theme, consensusSummary: summary };
+        })
+      );
+      setThemes(prev => {
+        const rest = prev.slice(6);
+        return [...updated, ...rest];
+      });
+      setSummariesLoading(false);
     });
   }, []);
 
@@ -78,21 +99,30 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Top Themes */}
         <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-          <h2 className="text-lg font-semibold mb-4">Top Consumer Themes</h2>
-          <div className="space-y-3">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Top Consumer Themes</h2>
+            {summariesLoading && (
+              <span className="text-xs text-emerald-400 animate-pulse">Generating summaries...</span>
+            )}
+          </div>
+          <div className="space-y-4">
             {themes.slice(0, 6).map((theme) => (
               <div key={theme.theme}>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="capitalize font-medium">{theme.theme}</span>
                   <span className="text-gray-400">{theme.count} mentions</span>
                 </div>
-                <div className="w-full bg-gray-800 rounded-full h-2">
+                <div className="w-full bg-gray-800 rounded-full h-2 mb-2">
                   <div
                     className={`h-2 rounded-full ${theme.sentiment === 'positive' ? 'bg-emerald-500' : 'bg-red-400'}`}
                     style={{ width: `${Math.min((theme.count / (themes[0]?.count || 1)) * 100, 100)}%` }}
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1 italic">"{theme.topQuote}"</p>
+                {theme.consensusSummary ? (
+                  <p className="text-xs text-gray-400 mt-1">{theme.consensusSummary}</p>
+                ) : (
+                  <p className="text-xs text-gray-600 mt-1 italic animate-pulse">Summarising...</p>
+                )}
               </div>
             ))}
           </div>
@@ -141,6 +171,44 @@ export default function OverviewPage() {
       </div>
     </div>
   );
+}
+
+async function generateThemeSummary(theme: ThemeSummary, reviews: ReviewIntelligence[]): Promise<string> {
+  try {
+    const relevantReviews = reviews
+      .filter(r => r.transcript.toLowerCase().includes(theme.theme.toLowerCase()))
+      .slice(0, 10)
+      .map(r => r.transcript.slice(0, 200))
+      .join('\n---\n');
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: `You are a consumer insights analyst. Based on these beverage product reviews mentioning "${theme.theme}", write a single concise sentence (max 20 words) summarising the main consumer consensus about this theme. Do not use quotes. Be direct and specific.
+
+Reviews:
+${relevantReviews}
+
+Respond with only the summary sentence, nothing else.`,
+        }],
+      }),
+    });
+
+    const data = await response.json();
+    return data.content?.[0]?.text?.trim() ?? fallbackSummary(theme);
+  } catch {
+    return fallbackSummary(theme);
+  }
+}
+
+function fallbackSummary(theme: ThemeSummary): string {
+  const sentiment = theme.sentiment === 'positive' ? 'positively received' : 'a point of concern';
+  return `${theme.count} consumers mentioned ${theme.theme} — generally ${sentiment} across reviewed brands.`;
 }
 
 function KPICard({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
