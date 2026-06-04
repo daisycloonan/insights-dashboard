@@ -129,6 +129,7 @@ The brief was initially run through ChatGPT to generate a broad directional read
 
 ## What I Would Improve With More Time
 
+- Restructure of each tab's purpose for increasing accessibility to the key insights and imporving the commercial narrative of the app for the brand teams
 - Embeddings-based NLP for more accurate signal extraction
 - Retailer sales data to weight insights by commercial impact
 - Social listening data to validate transcript signals at scale
