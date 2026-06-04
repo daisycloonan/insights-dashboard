@@ -251,10 +251,50 @@ export function buildProductInsights(reviews: ReviewIntelligence[], signals: Ext
       .map(([t]) => t);
 
     const positioning = review.product?.description ?? '';
-    const consumerThemes = topThemes.join(', ');
-    const claimsVsReality = positioning
-      ? `Brand claims: "${positioning.slice(0, 80)}..." | Consumer focus: ${consumerThemes || 'insufficient data'}`
-      : `Consumer focus: ${consumerThemes || 'insufficient data'}`;
+const consumerThemes = topThemes;
+const priceTier = review.product?.['market_position.price_tier'] ?? '';
+const subcategory = review.product?.subcategory ?? '';
+
+// Extract what brand explicitly claims
+const brandClaims: string[] = [];
+if (positioning.toLowerCase().includes('premium')) brandClaims.push('premium quality');
+if (positioning.toLowerCase().includes('natural')) brandClaims.push('natural ingredients');
+if (positioning.toLowerCase().includes('functional')) brandClaims.push('functional benefits');
+if (positioning.toLowerCase().includes('health')) brandClaims.push('health credentials');
+if (positioning.toLowerCase().includes('sustain')) brandClaims.push('sustainability');
+if (positioning.toLowerCase().includes('flavour') || positioning.toLowerCase().includes('flavor')) brandClaims.push('distinctive flavour');
+if (positioning.toLowerCase().includes('mixer') || positioning.toLowerCase().includes('cocktail')) brandClaims.push('mixer versatility');
+if (positioning.toLowerCase().includes('refresh')) brandClaims.push('refreshment');
+if (positioning.toLowerCase().includes('energy')) brandClaims.push('energy boost');
+if (positioning.toLowerCase().includes('gut') || positioning.toLowerCase().includes('probiotic')) brandClaims.push('gut health');
+if (priceTier === 'premium') brandClaims.push('premium pricing');
+if (brandClaims.length === 0 && positioning) brandClaims.push(positioning.slice(0, 60));
+
+// Find alignment and gaps
+const alignedThemes = consumerThemes.filter(t =>
+  brandClaims.some(c => c.toLowerCase().includes(t.toLowerCase()) ||
+    t.toLowerCase().includes(c.toLowerCase().split(' ')[0]))
+);
+const unexpectedThemes = consumerThemes.filter(t => !alignedThemes.includes(t));
+
+let claimsVsReality = '';
+
+if (brandClaims.length > 0 && consumerThemes.length > 0) {
+  const claimsStr = brandClaims.slice(0, 3).join(', ');
+  const consumerStr = consumerThemes.join(', ');
+
+  if (alignedThemes.length > 0 && unexpectedThemes.length > 0) {
+    claimsVsReality = `Brand leads with ${claimsStr}. Consumers confirm ${alignedThemes.join(', ')} but also focus on ${unexpectedThemes.join(', ')} — not prominent in positioning.`;
+  } else if (alignedThemes.length > 0) {
+    claimsVsReality = `Brand leads with ${claimsStr}. Consumer voice aligns well — primarily discussing ${consumerStr}.`;
+  } else {
+    claimsVsReality = `Brand leads with ${claimsStr}. Consumers focus on ${consumerStr} instead — a potential messaging gap.`;
+  }
+} else if (consumerThemes.length > 0) {
+  claimsVsReality = `Consumer focus: ${consumerThemes.join(', ')}. No strong brand positioning signals detected.`;
+} else {
+  claimsVsReality = 'Insufficient review data to compare claims vs consumer reality.';
+}
 
     return {
       productId: review.product?.productId ?? 'unknown',
