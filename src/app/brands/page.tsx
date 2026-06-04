@@ -10,6 +10,7 @@ export default function BrandsPage() {
   const [allBrands, setAllBrands] = useState<RawBrand[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<'reviewCount' | 'avgRating' | 'momentum' | 'popularity' | 'breakthrough'>('reviewCount');
+const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
 
   useEffect(() => {
     Promise.all([loadAllData(), loadAllBrands()]).then(([reviews, brands]) => {
@@ -21,8 +22,8 @@ export default function BrandsPage() {
   }, []);
 
   const sorted = useMemo(() => {
-    return [...brandInsights].sort((a, b) => b[sortBy] - a[sortBy]);
-  }, [brandInsights, sortBy]);
+  return [...brandInsights].sort((a, b) => sortDir === 'desc' ? b[sortBy] - a[sortBy] : a[sortBy] - b[sortBy]);
+}, [brandInsights, sortBy, sortDir]);
 
   const topBrand = sorted[0];
   const bottomBrand = sorted[sorted.length - 1];
@@ -74,20 +75,26 @@ export default function BrandsPage() {
       <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 flex flex-wrap gap-3 items-center">
         <span className="text-sm text-gray-400">Sort by:</span>
         {(['reviewCount', 'avgRating', 'momentum', 'popularity', 'breakthrough'] as const).map(key => (
-          <button
-            key={key}
-            onClick={() => setSortBy(key)}
-            className={`text-sm px-3 py-1.5 rounded-lg transition-colors ${
-              sortBy === key
-                ? 'bg-emerald-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:text-white'
-            }`}
-          >
-            {key === 'reviewCount' ? 'Reviews' :
-             key === 'avgRating' ? 'Rating' :
-             key.charAt(0).toUpperCase() + key.slice(1)}
-          </button>
-        ))}
+  <button
+    key={key}
+    onClick={() => setSortBy(key)}
+    className={`text-sm px-3 py-1.5 rounded-lg transition-colors ${
+      sortBy === key
+        ? 'bg-emerald-600 text-white'
+        : 'bg-gray-800 text-gray-400 hover:text-white'
+    }`}
+  >
+    {key === 'reviewCount' ? 'Reviews' :
+     key === 'avgRating' ? 'Rating' :
+     key.charAt(0).toUpperCase() + key.slice(1)}
+  </button>
+))}
+<button
+  onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+  className="text-sm px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:text-white transition-colors ml-2"
+>
+  {sortDir === 'desc' ? '↓ High to Low' : '↑ Low to High'}
+</button>
       </div>
 
       {/* Brand Cards */}
