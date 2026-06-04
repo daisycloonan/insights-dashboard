@@ -25,24 +25,27 @@ export interface RawProduct {
   productId: string;
   productName: string;
   brand: string;
-  priceGBP: number;
-  priceTier: 'budget' | 'mid' | 'premium';
+  price: number;
+  'market_position.price_tier': string;
+  description: string;
   ingredients: string;
-  positioning: string;
-  usageOccasions: string;
-  targetUsers: string;
+  'market_position.market_maturity': string;
+  retailers_available: string;
+  target_user_1_segment: string;
+  target_user_2_segment: string;
+  usage_1_scenario: string;
+  usage_2_scenario: string;
   labels: string;
-  retailers: string;
 }
 
 export interface RawBrand {
   brand_name: string;
-  momentum: number;
-  popularity: number;
-  breakthrough: number;
-  positioning: string;
-  archetypes: string;
-  socialMetrics: string;
+  momentum_score: number;
+  popularity_score: number;
+  breakthrough_score: number;
+  description: string;
+  archetype_affinity: string;
+  research_overall_assessment: string;
 }
 
 // Joined intelligence object
@@ -64,7 +67,7 @@ export interface ExtractedSignal {
   evidenceQuote: string;
   productId: string;
   brand: string;
-  confidence: number; // 0–1
+  confidence: number;
 }
 
 export interface ThemeSummary {

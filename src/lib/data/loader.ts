@@ -33,7 +33,6 @@ export async function loadAllData(): Promise<ReviewIntelligence[]> {
     fetchCSV<RawBrand>('/data/brands.csv'),
   ]);
 
-  // Build lookup maps
   const userByReviewId = new Map<string, RawUser>();
   for (const user of users) {
     userByReviewId.set(user.reviewId, user);
@@ -49,7 +48,6 @@ export async function loadAllData(): Promise<ReviewIntelligence[]> {
     brandByName.set(brand.brand_name.trim().toLowerCase(), brand);
   }
 
-  // Join into unified ReviewIntelligence objects
   const joined: ReviewIntelligence[] = transcripts.map((t) => {
     const product = productById.get(t.productId) ?? null;
     const brandKey = t.brand?.trim().toLowerCase();
@@ -72,12 +70,10 @@ export async function loadAllData(): Promise<ReviewIntelligence[]> {
   return joined;
 }
 
-// Helper: get all products including those without transcripts
 export async function loadAllProducts(): Promise<RawProduct[]> {
   return fetchCSV<RawProduct>('/data/products.csv');
 }
 
-// Helper: get all brands
 export async function loadAllBrands(): Promise<RawBrand[]> {
   return fetchCSV<RawBrand>('/data/brands.csv');
 }

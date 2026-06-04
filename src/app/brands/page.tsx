@@ -27,7 +27,6 @@ export default function BrandsPage() {
   const topBrand = sorted[0];
   const bottomBrand = sorted[sorted.length - 1];
 
-  // Brands in catalogue but with no reviews
   const catalogueBrands = allBrands.filter(
     b => !brandInsights.find(bi => bi.brandName.toLowerCase() === b.brand_name.toLowerCase())
   );
@@ -95,13 +94,12 @@ export default function BrandsPage() {
       <div className="space-y-4">
         {sorted.map((brand, index) => (
           <div key={brand.brandName} className="bg-gray-900 rounded-xl p-5 border border-gray-800 space-y-4">
-            {/* Header */}
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
                 <span className="text-2xl font-bold text-gray-600">#{index + 1}</span>
                 <div>
                   <h3 className="font-bold text-white text-lg">{brand.brandName}</h3>
-                  <p className="text-xs text-gray-400">{brand.positioning}</p>
+                  <p className="text-xs text-gray-400 max-w-lg">{brand.positioning?.slice(0, 120)}...</p>
                 </div>
               </div>
               <div className="text-right">
@@ -154,11 +152,11 @@ export default function BrandsPage() {
             {catalogueBrands.map(b => (
               <div key={b.brand_name} className="bg-gray-900 rounded-xl p-4 border border-dashed border-gray-700 space-y-2">
                 <p className="font-medium text-sm text-gray-300">{b.brand_name}</p>
-                <p className="text-xs text-gray-500">{b.positioning?.slice(0, 100)}</p>
+                <p className="text-xs text-gray-500">{b.description?.slice(0, 100)}</p>
                 <div className="grid grid-cols-3 gap-1 text-xs text-gray-600">
-                  <span>M: {b.momentum}</span>
-                  <span>P: {b.popularity}</span>
-                  <span>B: {b.breakthrough}</span>
+                  <span>M: {b.momentum_score}</span>
+                  <span>P: {b.popularity_score}</span>
+                  <span>B: {b.breakthrough_score}</span>
                 </div>
               </div>
             ))}

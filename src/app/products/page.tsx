@@ -141,8 +141,8 @@ export default function ProductsPage() {
             {catalogueOnly.map(p => (
               <div key={p.productId} className="bg-gray-900 rounded-xl p-4 border border-dashed border-gray-700 space-y-2">
                 <p className="font-medium text-sm text-gray-300">{p.productName}</p>
-                <p className="text-xs text-gray-500">{p.brand} · £{p.priceGBP} · {p.priceTier}</p>
-                <p className="text-xs text-gray-600 italic">{p.positioning?.slice(0, 80)}...</p>
+                <p className="text-xs text-gray-500">{p.brand} · £{p.price} · {p['market_position.price_tier']}</p>
+                <p className="text-xs text-gray-600 italic">{p.description?.slice(0, 80)}...</p>
               </div>
             ))}
           </div>

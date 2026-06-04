@@ -177,14 +177,14 @@ export function buildBrandInsights(reviews: ReviewIntelligence[], signals: Extra
 
     return {
       brandName,
-      momentum: Number(data.brand?.momentum ?? 0),
-      popularity: Number(data.brand?.popularity ?? 0),
-      breakthrough: Number(data.brand?.breakthrough ?? 0),
+      momentum: Number(data.brand?.momentum_score ?? 0),
+      popularity: Number(data.brand?.popularity_score ?? 0),
+      breakthrough: Number(data.brand?.breakthrough_score ?? 0),
       avgRating: Math.round(avgRating * 10) / 10,
       avgSentimentScore: Math.round(avgSentiment * 100) / 100,
       reviewCount: data.ratings.length,
       topThemes,
-      positioning: data.brand?.positioning ?? 'No positioning data',
+      positioning: data.brand?.description ?? 'No positioning data',
     };
   }).sort((a, b) => b.reviewCount - a.reviewCount);
 }
@@ -214,7 +214,7 @@ export function buildProductInsights(reviews: ReviewIntelligence[], signals: Ext
     const themeCounts = data.themes.reduce<Record<string, number>>((acc, t) => { acc[t] = (acc[t] ?? 0) + 1; return acc; }, {});
     const topThemes = Object.entries(themeCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
 
-    const positioning = review.product?.positioning ?? '';
+    const positioning = review.product?.description ?? '';
     const consumerThemes = topThemes.join(', ');
     const claimsVsReality = positioning
       ? `Brand claims: "${positioning.slice(0, 80)}..." | Consumer focus: ${consumerThemes || 'insufficient data'}`
@@ -224,8 +224,8 @@ export function buildProductInsights(reviews: ReviewIntelligence[], signals: Ext
       productId: review.product?.productId ?? 'unknown',
       productName: review.product?.productName ?? 'Unknown Product',
       brand: review.product?.brand ?? 'Unknown',
-      priceGBP: Number(review.product?.priceGBP ?? 0),
-      priceTier: review.product?.priceTier ?? 'unknown',
+      priceGBP: Number(review.product?.price ?? 0),
+      priceTier: review.product?.['market_position.price_tier'] ?? 'unknown',
       positioning,
       avgRating: Math.round(avgRating * 10) / 10,
       sentimentScore: Math.round(avgSentiment * 100) / 100,
