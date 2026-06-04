@@ -23,12 +23,12 @@ export default function ConsumerVoicePage() {
   }, []);
 
   const brands = useMemo(() => ['all', ...Array.from(new Set(reviews.map(r => r.product?.brand ?? r.brand?.brand_name ?? 'Unknown')))], [reviews]);
-  const archetypes = useMemo(() => ['all', ...Array.from(new Set(reviews.map(r => r.user?.archetype ?? 'Unknown')))], [reviews]);
+  const archetypes = useMemo(() => ['all', ...Array.from(new Set(reviews.map(r => r.archetype ?? 'Unknown')))], [reviews]);
 
   const filtered = useMemo(() => {
     return reviews.filter((r) => {
       const brandName = r.product?.brand ?? r.brand?.brand_name ?? '';
-      const archetype = r.user?.archetype ?? '';
+      const archetype = r.archetype ?? '';
       const matchesSearch = search === '' || r.transcript.toLowerCase().includes(search.toLowerCase());
       const matchesSentiment = filterSentiment === 'all' || r.sentiment === filterSentiment;
       const matchesBrand = filterBrand === 'all' || brandName === filterBrand;
@@ -100,7 +100,7 @@ export default function ConsumerVoicePage() {
                 <div className="flex items-center gap-3 text-sm text-gray-400">
                   <span>⭐ {review.rating}/5</span>
                   {review.purchaseIntent && <span className="text-emerald-400 text-xs font-medium">✓ Purchase Intent</span>}
-                  {review.user?.archetype && <span className="text-xs bg-gray-800 px-2 py-0.5 rounded-full">{review.user.archetype}</span>}
+                  {review.archetype && <span className="text-xs bg-gray-800 px-2 py-0.5 rounded-full">{review.archetype}</span>}
                 </div>
               </div>
 

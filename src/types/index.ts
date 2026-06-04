@@ -1,24 +1,32 @@
-// Raw data types (as loaded from files)
 export interface RawTranscript {
   reviewId: string;
-  productId: string;
   brand: string;
-  transcript: string;
-  sentiment: 'positive' | 'negative' | 'neutral';
-  rating: number;
-  purchaseIntent: boolean;
   personId: string;
+  productId: string;
+  createdAt: string;
+  votes: Array<{ product: { id: string; name: string }; rating: number }>;
+  wouldBuy: Array<{ wouldBuyAfterTrying?: string; wouldBuyInTheFirstPlace?: string }>;
+  transcription: {
+    text: string;
+    summary: string;
+    sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL' | 'MIXED';
+    wordCount: number;
+  } | null;
 }
 
 export interface RawUser {
   personId: string;
   reviewId: string;
-  age: number;
+  brand: string;
+  firstName: string;
+  lastName: string;
+  age: string;
   gender: string;
   region: string;
-  archetype: string;
+  videoReviewerTier: string;
+  archetypes: Array<{ name: string; order: number }>;
   tags: string[];
-  behaviouralSignals: string[];
+  questions: Array<{ id: string; title: string; answers: Array<{ id: string; text: string }> }>;
 }
 
 export interface RawProduct {
@@ -29,13 +37,18 @@ export interface RawProduct {
   'market_position.price_tier': string;
   description: string;
   ingredients: string;
+  subcategory: string;
   'market_position.market_maturity': string;
+  'market_position.seasonality': string;
   retailers_available: string;
   target_user_1_segment: string;
+  target_user_1_motivation: string;
   target_user_2_segment: string;
+  target_user_2_motivation: string;
   usage_1_scenario: string;
   usage_2_scenario: string;
   labels: string;
+  pack_size: string;
 }
 
 export interface RawBrand {
@@ -46,21 +59,23 @@ export interface RawBrand {
   description: string;
   archetype_affinity: string;
   research_overall_assessment: string;
+  founded_year: number;
+  hq_city: string;
 }
 
-// Joined intelligence object
 export interface ReviewIntelligence {
   reviewId: string;
   transcript: string;
+  summary: string;
   sentiment: 'positive' | 'negative' | 'neutral';
   rating: number;
   purchaseIntent: boolean;
   product: RawProduct | null;
   brand: RawBrand | null;
   user: RawUser | null;
+  archetype: string;
 }
 
-// Insight / signal types
 export interface ExtractedSignal {
   type: 'theme' | 'driver' | 'complaint' | 'occasion' | 'competitor';
   label: string;

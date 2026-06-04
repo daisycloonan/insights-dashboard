@@ -1,6 +1,12 @@
-import { ReviewIntelligence, ExtractedSignal, ThemeSummary, BrandInsight, ProductInsight, Opportunity } from '@/types';
+import {
+  ReviewIntelligence,
+  ExtractedSignal,
+  ThemeSummary,
+  BrandInsight,
+  ProductInsight,
+  Opportunity,
+} from '@/types';
 
-// Theme keyword maps
 const THEME_KEYWORDS: Record<string, string[]> = {
   taste: ['taste', 'flavour', 'flavor', 'delicious', 'yummy', 'disgusting', 'bland', 'sweet', 'bitter', 'sour'],
   sweetness: ['sweet', 'sugar', 'syrupy', 'too sweet', 'not sweet', 'sweetness'],
@@ -41,11 +47,11 @@ export function extractSignals(reviews: ReviewIntelligence[]): ExtractedSignal[]
 
   for (const review of reviews) {
     const text = review.transcript;
+    if (!text) continue;
     const lower = text.toLowerCase();
     const productId = review.product?.productId ?? 'unknown';
     const brand = review.product?.brand ?? review.brand?.brand_name ?? 'unknown';
 
-    // Themes
     for (const [theme, keywords] of Object.entries(THEME_KEYWORDS)) {
       if (keywords.some(k => lower.includes(k))) {
         signals.push({
@@ -59,7 +65,6 @@ export function extractSignals(reviews: ReviewIntelligence[]): ExtractedSignal[]
       }
     }
 
-    // Drivers
     if (DRIVER_KEYWORDS.some(k => lower.includes(k))) {
       signals.push({
         type: 'driver',
@@ -71,7 +76,6 @@ export function extractSignals(reviews: ReviewIntelligence[]): ExtractedSignal[]
       });
     }
 
-    // Complaints
     if (COMPLAINT_KEYWORDS.some(k => lower.includes(k))) {
       signals.push({
         type: 'complaint',
@@ -83,7 +87,6 @@ export function extractSignals(reviews: ReviewIntelligence[]): ExtractedSignal[]
       });
     }
 
-    // Occasions
     for (const occasion of OCCASION_KEYWORDS) {
       if (lower.includes(occasion)) {
         signals.push({
@@ -97,7 +100,6 @@ export function extractSignals(reviews: ReviewIntelligence[]): ExtractedSignal[]
       }
     }
 
-    // Competitors
     for (const competitor of COMPETITOR_BRANDS) {
       if (lower.includes(competitor)) {
         signals.push({
@@ -116,7 +118,13 @@ export function extractSignals(reviews: ReviewIntelligence[]): ExtractedSignal[]
 }
 
 export function summariseThemes(signals: ExtractedSignal[], reviews: ReviewIntelligence[]): ThemeSummary[] {
-  const themeMap = new Map<string, { count: number; ratings: number[]; quotes: string[]; brands: Set<string>; sentiments: string[] }>();
+  const themeMap = new Map<string, {
+    count: number;
+    ratings: number[];
+    quotes: string[];
+    brands: Set<string>;
+    sentiments: string[];
+  }>();
 
   for (const signal of signals.filter(s => s.type === 'theme')) {
     if (!themeMap.has(signal.label)) {
@@ -135,7 +143,9 @@ export function summariseThemes(signals: ExtractedSignal[], reviews: ReviewIntel
   }
 
   return Array.from(themeMap.entries()).map(([theme, data]) => {
-    const avgRating = data.ratings.length > 0 ? data.ratings.reduce((a, b) => a + b, 0) / data.ratings.length : 0;
+    const avgRating = data.ratings.length > 0
+      ? data.ratings.reduce((a, b) => a + b, 0) / data.ratings.length
+      : 0;
     const positiveCount = data.sentiments.filter(s => s === 'positive').length;
     const negativeCount = data.sentiments.filter(s => s === 'negative').length;
     const dominantSentiment = positiveCount >= negativeCount ? 'positive' : 'negative';
@@ -152,7 +162,12 @@ export function summariseThemes(signals: ExtractedSignal[], reviews: ReviewIntel
 }
 
 export function buildBrandInsights(reviews: ReviewIntelligence[], signals: ExtractedSignal[]): BrandInsight[] {
-  const brandMap = new Map<string, { ratings: number[]; sentiments: number[]; themes: string[]; brand: ReviewIntelligence['brand'] }>();
+  const brandMap = new Map<string, {
+    ratings: number[];
+    sentiments: number[];
+    themes: string[];
+    brand: ReviewIntelligence['brand'];
+  }>();
 
   for (const review of reviews) {
     const name = review.brand?.brand_name ?? review.product?.brand ?? 'Unknown';
@@ -161,7 +176,9 @@ export function buildBrandInsights(reviews: ReviewIntelligence[], signals: Extra
     }
     const entry = brandMap.get(name)!;
     entry.ratings.push(review.rating);
-    entry.sentiments.push(review.sentiment === 'positive' ? 1 : review.sentiment === 'negative' ? -1 : 0);
+    entry.sentiments.push(
+      review.sentiment === 'positive' ? 1 : review.sentiment === 'negative' ? -1 : 0
+    );
   }
 
   for (const signal of signals.filter(s => s.type === 'theme')) {
@@ -172,8 +189,14 @@ export function buildBrandInsights(reviews: ReviewIntelligence[], signals: Extra
   return Array.from(brandMap.entries()).map(([brandName, data]) => {
     const avgRating = data.ratings.reduce((a, b) => a + b, 0) / (data.ratings.length || 1);
     const avgSentiment = data.sentiments.reduce((a, b) => a + b, 0) / (data.sentiments.length || 1);
-    const themeCounts = data.themes.reduce<Record<string, number>>((acc, t) => { acc[t] = (acc[t] ?? 0) + 1; return acc; }, {});
-    const topThemes = Object.entries(themeCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
+    const themeCounts = data.themes.reduce<Record<string, number>>((acc, t) => {
+      acc[t] = (acc[t] ?? 0) + 1;
+      return acc;
+    }, {});
+    const topThemes = Object.entries(themeCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([t]) => t);
 
     return {
       brandName,
@@ -190,7 +213,12 @@ export function buildBrandInsights(reviews: ReviewIntelligence[], signals: Extra
 }
 
 export function buildProductInsights(reviews: ReviewIntelligence[], signals: ExtractedSignal[]): ProductInsight[] {
-  const productMap = new Map<string, { ratings: number[]; sentiments: number[]; themes: string[]; review: ReviewIntelligence }>();
+  const productMap = new Map<string, {
+    ratings: number[];
+    sentiments: number[];
+    themes: string[];
+    review: ReviewIntelligence;
+  }>();
 
   for (const review of reviews) {
     const pid = review.product?.productId ?? 'unknown';
@@ -199,7 +227,9 @@ export function buildProductInsights(reviews: ReviewIntelligence[], signals: Ext
     }
     const entry = productMap.get(pid)!;
     entry.ratings.push(review.rating);
-    entry.sentiments.push(review.sentiment === 'positive' ? 1 : review.sentiment === 'negative' ? -1 : 0);
+    entry.sentiments.push(
+      review.sentiment === 'positive' ? 1 : review.sentiment === 'negative' ? -1 : 0
+    );
   }
 
   for (const signal of signals.filter(s => s.type === 'theme')) {
@@ -211,8 +241,14 @@ export function buildProductInsights(reviews: ReviewIntelligence[], signals: Ext
     const { review } = data;
     const avgRating = data.ratings.reduce((a, b) => a + b, 0) / (data.ratings.length || 1);
     const avgSentiment = data.sentiments.reduce((a, b) => a + b, 0) / (data.sentiments.length || 1);
-    const themeCounts = data.themes.reduce<Record<string, number>>((acc, t) => { acc[t] = (acc[t] ?? 0) + 1; return acc; }, {});
-    const topThemes = Object.entries(themeCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t);
+    const themeCounts = data.themes.reduce<Record<string, number>>((acc, t) => {
+      acc[t] = (acc[t] ?? 0) + 1;
+      return acc;
+    }, {});
+    const topThemes = Object.entries(themeCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([t]) => t);
 
     const positioning = review.product?.description ?? '';
     const consumerThemes = topThemes.join(', ');
@@ -284,7 +320,7 @@ export function generateOpportunities(
     }
   }
 
-  // 3. Common complaints across category
+  // 3. Common complaints
   const complaintSignals = signals.filter(s => s.type === 'complaint');
   if (complaintSignals.length > 5) {
     opportunities.push({
@@ -299,16 +335,23 @@ export function generateOpportunities(
   }
 
   // 4. Underserved segments
-  const archetypes = reviews.map(r => r.user?.archetype).filter(Boolean) as string[];
-  const archetypeCounts = archetypes.reduce<Record<string, number>>((acc, a) => { acc[a] = (acc[a] ?? 0) + 1; return acc; }, {});
-  const underserved = Object.entries(archetypeCounts).filter(([, count]) => count <= 2);
+  const archetypes = reviews.map(r => r.archetype).filter(Boolean);
+  const archetypeCounts = archetypes.reduce<Record<string, number>>((acc, a) => {
+    acc[a] = (acc[a] ?? 0) + 1;
+    return acc;
+  }, {});
+  const underserved = Object.entries(archetypeCounts).filter(([, count]) => count <= 3);
   for (const [archetype] of underserved) {
     opportunities.push({
       id: `segment-${archetype}`,
       title: `Underserved consumer segment: ${archetype}`,
       explanation: `The "${archetype}" archetype appears in very few reviews, suggesting this segment is either not engaged or not well served by current products in the category.`,
-      evidence: reviews.filter(r => r.user?.archetype === archetype).map(r => r.transcript.slice(0, 100)),
-      impactedBrands: [...new Set(reviews.filter(r => r.user?.archetype === archetype).map(r => r.brand?.brand_name ?? ''))],
+      evidence: reviews
+        .filter(r => r.archetype === archetype)
+        .map(r => r.transcript.slice(0, 100)),
+      impactedBrands: [...new Set(reviews
+        .filter(r => r.archetype === archetype)
+        .map(r => r.brand?.brand_name ?? ''))],
       impactedProducts: [],
       type: 'segment',
     });
